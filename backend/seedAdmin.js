@@ -1,5 +1,6 @@
 require('dotenv').config();
 const mongoose = require('mongoose');
+const bcrypt = require('bcryptjs');
 const User = require('./models/User');
 
 const MONGO_URI = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/echobox';
@@ -12,7 +13,13 @@ async function ensureAdminUser() {
     return { created: false };
   }
 
-  await User.create({ username: 'admin', password: 'password', isAdmin: true });
+  if (process.env.NODE_ENV === 'production' && !process.env.ADMIN_PASSWORD) {
+    throw new Error('ADMIN_PASSWORD must be set before creating the production admin account.');
+  }
+  const adminPassword = process.env.ADMIN_PASSWORD || 'password';
+  if (adminPassword.length < 8) throw new Error('ADMIN_PASSWORD must be at least 8 characters.');
+  const password = await bcrypt.hash(adminPassword, 12);
+  await User.create({ username: 'admin', password, isAdmin: true });
   console.log('Admin created.');
   return { created: true };
 }

@@ -1,39 +1,49 @@
 import './Sidebar.css';
+import BrandLogo from './BrandLogo';
+import Icon from './Icon';
+import { Link, useLocation } from 'react-router-dom';
 
-export default function Sidebar({ selectedCategory, setSelectedCategory, openModal, currentUser }) {
+export default function Sidebar({ selectedCategory, setSelectedCategory, openModal, currentUser, isOpen, onClose, onShowSaved, onClearSaved }) {
+  const location = useLocation();
   const categories = ["All Posts", "Teacher", "Event", "Facility", "Student Life"];
 
   return (
-    <aside className="sidebar">
+    <aside id="site-sidebar" className={`sidebar ${isOpen ? 'sidebar-open' : ''}`}>
       <div className="sidebar-header">
-        <h1 className="logo">EchoBox</h1>
+        <BrandLogo />
+        <button className="sidebar-close" type="button" onClick={onClose} aria-label="Close categories"><Icon name="close" /></button>
       </div>
       
       {currentUser ? (
-        <button className="post-btn" onClick={openModal}>+ Post Feedback</button>
+        <button className="post-btn" onClick={() => { openModal(); onClose(); }}>+ Create a post</button>
       ) : (
-        <div className="login-prompt">Login to post feedback</div>
+        <Link className="login-prompt" to="/auth" onClick={onClose}>Sign in to create a post</Link>
       )}
       
-      <nav className="category-nav">
-        <h3 className="nav-title">CATEGORIES</h3>
-        <ul>
-          {categories.map(cat => (
-            <li 
-              key={cat}
-              className={selectedCategory === cat ? "active" : ""}
-              onClick={() => setSelectedCategory(cat)}
-            >
-              {cat}
-            </li>
-          ))}
+      <nav className="sidebar-nav" aria-label="Main navigation">
+        <h3 className="nav-title">WORKSPACE</h3>
+        <ul className="primary-nav-list">
+          <li><Link to="/" onClick={onClose} className={location.pathname === '/' ? 'active' : ''}><Icon className="sidebar-nav-icon" name="home" />Feed</Link></li>
+          <li><Link to="/impact" onClick={onClose} className={location.pathname === '/impact' ? 'active' : ''}><Icon className="sidebar-nav-icon" name="impact" />Campus impact</Link></li>
+          {currentUser && <li><Link to="/profile" onClick={onClose} className={location.pathname === '/profile' ? 'active' : ''}><Icon className="sidebar-nav-icon" name="user" />Profile</Link></li>}
+          {currentUser && <li><button type="button" aria-current={location.pathname === '/saved' ? 'page' : undefined} className={location.pathname === '/saved' ? 'active' : ''} onClick={() => { onShowSaved?.(); onClose(); }}><Icon className="sidebar-nav-icon" name="bookmark" />Saved posts</button></li>}
+          {currentUser?.isAdmin && <li><Link to="/admin" onClick={onClose} className={location.pathname === '/admin' ? 'active' : ''}><Icon className="sidebar-nav-icon" name="grid" />Admin tools</Link></li>}
         </ul>
       </nav>
-      
+
+      {location.pathname === '/' && <nav className="category-nav" aria-label="Filter feed by category">
+        <h3 className="nav-title">EXPLORE CATEGORIES</h3>
+        <ul>
+          {categories.map(cat => (
+            <li key={cat}><button type="button" aria-pressed={selectedCategory === cat} className={selectedCategory === cat ? 'active' : ''} onClick={() => { setSelectedCategory(cat); onClearSaved?.(); onClose(); }}><Icon className="category-dot" name="category" size={14} />{cat}</button></li>
+          ))}
+        </ul>
+      </nav>}
+
       <div className="anonymity-shield">
-        <div className="shield-icon">🛡️</div>
-        <h4>ANONYMITY SHIELD ACTIVE</h4>
-        <p>Your identity is encrypted and kept entirely safe from public view.</p>
+        <div className="shield-icon"><Icon name="shield" size={21} /></div>
+        <h4>YOUR VOICE, YOUR CHOICE</h4>
+        <p>Choose to post anonymously, as your campus alias, or with your profile.</p>
       </div>
     </aside>
   );

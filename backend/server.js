@@ -7,24 +7,40 @@ const authRoutes = require('./routes/auth');
 const postRoutes = require('./routes/posts');
 const { seedPosts } = require('./seed');
 const { ensureAdminUser } = require('./seedAdmin');
+const { migratePlaintextPasswords } = require('./migratePasswords');
+const { migrateLegacyReports } = require('./migrateReports');
 const Notification = require('./models/Notification');
+const { authenticate, requireAdmin } = require('./middleware/auth');
 
 const app = express();
-app.use(cors());
-app.use(express.json());
+const allowedOrigins = (process.env.CORS_ORIGINS || 'http://localhost:5173')
+  .split(',')
+  .map(origin => origin.trim())
+  .filter(Boolean);
+
+app.use(cors({
+  origin(origin, callback) {
+    if (!origin || allowedOrigins.includes(origin)) return callback(null, true);
+    return callback(new Error('Origin is not allowed by CORS.'));
+  }
+}));
+app.use(express.json({ limit: '2mb' }));
 
 mongoose.connect(process.env.MONGO_URI)
   .then(async () => {
     console.log('MongoDB Connected');
+    await migratePlaintextPasswords();
+    const migratedReports = await migrateLegacyReports();
+    if (migratedReports) console.log(`Added ${migratedReports} legacy report(s) to the moderation queue.`);
     await ensureAdminUser();
     await seedPosts();
   })
-  .catch(err => console.log(err));
+  .catch(err => console.error('MongoDB connection failed:', err.message));
 
 app.use('/api/auth', authRoutes);
 app.use('/api/posts', postRoutes);
 
-app.get('/api/admin/notifications', async (req, res) => {
+app.get('/api/admin/notifications', authenticate, requireAdmin, async (req, res) => {
   try {
     const notifications = await Notification.find().sort({ createdAt: -1 });
     res.json(notifications);
