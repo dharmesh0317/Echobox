@@ -149,7 +149,9 @@ export default function Profile({ currentUser, posts = [], onProfileUpdate }) {
     finally { setIsSaving(false); }
   };
 
-  const role = currentUser.isAdmin ? 'Administrator' : 'Student';
+  const role = currentUser.isAdmin
+    ? 'Administrator'
+    : (currentUser.campusRole || 'student').replace(/^./, letter => letter.toUpperCase());
   const ownPostCount = posts.filter(post => post.author?._id === currentUser._id || (!currentUser.isAdmin && post.canEdit)).length;
   const savedPostCount = currentUser.savedPosts?.length || 0;
   const followedCount = (currentUser.followedPosts?.length || 0) + (currentUser.followedTopics?.length || 0);

@@ -39,7 +39,7 @@ export default function Auth({ onLogin, onRegister, darkMode, onToggleDarkMode }
         <h2>Small ideas can make campus better.</h2>
         <p>Share feedback, follow suggestions, and see what happens next—all in one place.</p>
         <div className="auth-benefits"><span><b>01</b> Share campus feedback</span><span><b>02</b> Follow useful suggestions</span><span><b>03</b> See progress and replies</span></div>
-        <div className="auth-story-note"><span aria-hidden="true">✓</span> Your username stays separate from public feedback.</div>
+        <div className="auth-story-note"><span aria-hidden="true">✓</span> Choose how your identity appears on each post.</div>
       </aside>
 
       <section className="auth-card" aria-labelledby="auth-title">
@@ -64,7 +64,7 @@ export default function Auth({ onLogin, onRegister, darkMode, onToggleDarkMode }
           {!isLogin && <p className="auth-private-note">Your role and department help tailor the campus experience. They are not shown with your public feedback.</p>}
           <button type="submit" className="auth-btn" disabled={isSubmitting}>{isSubmitting ? 'Please wait...' : isLogin ? 'Sign in' : 'Create account'}</button>
         </form>
-        {isLogin && <p className="auth-privacy-note">Your public feedback is shown without your account identity.</p>}
+        {isLogin && <p className="auth-privacy-note">You choose whether each post is anonymous, uses your campus alias, or shows your profile.</p>}
         <div className="auth-toggle-row"><span>{isLogin ? 'New to EchoBox?' : 'Already have an account?'}</span><button className="toggle-btn" type="button" onClick={toggleMode}>{isLogin ? 'Create an account' : 'Sign in'}</button></div>
       </section>
     </div>

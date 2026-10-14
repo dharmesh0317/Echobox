@@ -103,6 +103,7 @@ button, a, input, select, textarea { -webkit-tap-highlight-color: transparent; }
   min-height: 100vh;
   width: 100vw;
   overflow: clip;
+  transition: grid-template-columns .22s ease;
 }
 
 .main-content {
@@ -127,7 +128,13 @@ button, a, input, select, textarea { -webkit-tap-highlight-color: transparent; }
 
 @media (min-width: 761px) {
   .app-container.sidebar-collapsed { grid-template-columns: 0 minmax(0, 1fr); }
-  .app-container.sidebar-collapsed > .sidebar { display: none; }
+  .app-container.sidebar-collapsed > .sidebar {
+    min-width: 0;
+    overflow: hidden;
+    opacity: 0;
+    pointer-events: none;
+    transform: translateX(-12px);
+  }
 }
 
 /* Global interaction and responsive shell rules */
@@ -136,4 +143,3 @@ body { line-height: 1.5; }
 ::selection { color: #10213b; background: #c9ddff; }
 button:disabled { cursor: not-allowed; }
 @media (max-width: 760px) { .app-container { overflow: visible; } }
-

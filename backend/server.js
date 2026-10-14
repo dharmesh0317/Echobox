@@ -9,6 +9,7 @@ const { seedPosts } = require('./seed');
 const { ensureAdminUser } = require('./seedAdmin');
 const { migratePlaintextPasswords } = require('./migratePasswords');
 const { migrateLegacyReports } = require('./migrateReports');
+const User = require('./models/User');
 const Notification = require('./models/Notification');
 const { authenticate, requireAdmin } = require('./middleware/auth');
 
@@ -29,6 +30,7 @@ app.use(express.json({ limit: '2mb' }));
 mongoose.connect(process.env.MONGO_URI)
   .then(async () => {
     console.log('MongoDB Connected');
+    await User.init();
     await migratePlaintextPasswords();
     const migratedReports = await migrateLegacyReports();
     if (migratedReports) console.log(`Added ${migratedReports} legacy report(s) to the moderation queue.`);

@@ -437,6 +437,126 @@ body[data-theme="dark"] .post-status-resolved { background: #17352d; color: #8fe
 .post-reactions button { display: inline-flex; align-items: center; gap: 6px; transition: color .16s ease, border-color .16s ease, background .16s ease; }
 .post-reactions button:hover { border-color: var(--accent-color); color: var(--accent-color); }
 .feed-state, .empty-state { border-color: var(--border-color); border-radius: 14px; background: var(--card-bg); color: var(--text-muted); }
+
+/* Post interaction hierarchy */
+.post-metrics {
+  gap: 8px;
+  padding: 13px 0;
+  border-top-color: color-mix(in srgb, var(--border-color) 80%, transparent);
+}
+.metric {
+  min-height: 36px;
+  padding: 7px 10px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+.metric:hover, .metric[aria-expanded="true"], .metric[aria-pressed="true"] {
+  border-color: color-mix(in srgb, var(--accent-color) 32%, var(--border-color));
+  background: color-mix(in srgb, var(--accent-color) 8%, var(--card-bg));
+  color: var(--accent-color);
+}
+.metric svg { color: currentColor; }
+.post-reactions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+.post-reactions button {
+  min-height: 34px;
+  padding: 6px 9px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--bg-color) 55%, var(--card-bg));
+  font-size: 11px;
+  font-weight: 750;
+}
+.post-reactions button.active {
+  border-color: var(--accent-color);
+  background: color-mix(in srgb, var(--accent-color) 14%, var(--card-bg));
+  color: var(--accent-color);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent-color) 10%, transparent);
+}
+.comments-section {
+  margin-inline: -26px;
+  padding: 18px 26px 22px;
+  background: color-mix(in srgb, var(--bg-color) 72%, var(--card-bg));
+  border-top-color: color-mix(in srgb, var(--border-color) 85%, transparent);
+}
+.comment-thread {
+  display: grid;
+  gap: 8px;
+  margin: 0 0 10px;
+}
+.comment-item {
+  position: relative;
+  display: grid;
+  gap: 5px;
+  margin: 0;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: var(--card-bg);
+  box-shadow: 0 2px 8px rgb(15 34 58 / 4%);
+}
+.comment-author {
+  margin: 0;
+  color: var(--accent-color);
+  font-size: 12px;
+  letter-spacing: .01em;
+}
+.comment-text {
+  color: var(--text-dark);
+  font-size: 13px;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+.comment-reply-button {
+  justify-self: start;
+  margin-top: 2px;
+  padding: 2px 0;
+  font-size: 11px;
+}
+.comment-reply-item {
+  margin-left: 18px;
+  border-left: 2px solid color-mix(in srgb, var(--accent-color) 45%, var(--border-color));
+  border-radius: 0 10px 10px 0;
+  background: color-mix(in srgb, var(--accent-color) 4%, var(--card-bg));
+}
+.comment-input-container {
+  align-items: center;
+  gap: 8px;
+  margin-top: 16px;
+}
+.comment-input {
+  min-height: 42px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: var(--card-bg);
+  color: var(--text-dark);
+  transition: border-color .18s ease, box-shadow .18s ease;
+}
+.comment-input:focus {
+  border-color: var(--accent-color);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-color) 14%, transparent);
+}
+.comment-submit {
+  min-height: 42px;
+  padding: 0 17px;
+  border-radius: 12px;
+  font-size: 12px;
+  transition: transform .16s ease, filter .16s ease;
+}
+.comment-submit:hover:not(:disabled) { filter: brightness(1.07); transform: translateY(-1px); }
+.comment-submit:disabled { background: color-mix(in srgb, var(--text-muted) 45%, var(--card-bg)); color: var(--text-muted); }
+.no-comments {
+  padding: 14px;
+  border: 1px dashed var(--border-color);
+  border-radius: 11px;
+  color: var(--text-muted);
+  font-size: 12px;
+  text-align: center;
+}
 @media (max-width: 900px) { .feed-layout { grid-template-columns: minmax(0, 1fr); } .feed-side-rail { position: static; grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 760px) { .feed-container { padding: 22px 18px 40px; } }
 @media (max-width: 520px) {
@@ -446,6 +566,12 @@ body[data-theme="dark"] .post-status-resolved { background: #17352d; color: #8fe
   .metric { font-size: 12px; }
   .follow-metric { margin-left: 0; }
   .comments-section { margin-inline: -16px; padding: 16px; }
+  .comments-section { padding: 15px 16px 18px; }
+  .post-metrics { align-items: stretch; }
+  .post-metrics .metric { padding-inline: 8px; }
+  .post-reactions { width: 100%; order: 2; }
+  .post-reactions button { flex: 1 1 auto; }
+  .comment-input-container { align-items: stretch; flex-direction: column; }
+  .comment-submit { min-height: 40px; }
   .feed-side-rail { grid-template-columns: minmax(0, 1fr); }
 }
-

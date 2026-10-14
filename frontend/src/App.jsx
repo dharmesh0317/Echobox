@@ -394,6 +394,10 @@ function App() {
   const featuredPoll = [...posts].filter(post => post.poll?.question).sort((a, b) => engagementScore(b) - engagementScore(a))[0] || null;
 
   const openComposer = (type = 'feedback') => {
+    if (!currentUser) {
+      navigate('/auth');
+      return;
+    }
     setEditingPost(null);
     setNewPostType(type);
     setIsModalOpen(true);

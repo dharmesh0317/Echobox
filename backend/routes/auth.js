@@ -10,6 +10,37 @@ const { validatePassword, validateCampusDetails } = require('../validation');
 const router = express.Router();
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MAX_PROFILE_PHOTO_LENGTH = 1_000_000;
+const LOGIN_WINDOW_MS = 15 * 60 * 1000;
+const LOGIN_ATTEMPT_LIMIT = 10;
+const loginAttempts = new Map();
+
+const getRequestBody = req => (
+  req.body && typeof req.body === 'object' && !Array.isArray(req.body) ? req.body : null
+);
+
+const getLoginKey = req => req.ip || req.socket?.remoteAddress || 'unknown';
+
+const isLoginBlocked = (req) => {
+  const entry = loginAttempts.get(getLoginKey(req));
+  if (!entry || entry.resetAt <= Date.now()) {
+    loginAttempts.delete(getLoginKey(req));
+    return false;
+  }
+  return entry.failures >= LOGIN_ATTEMPT_LIMIT;
+};
+
+const recordLoginFailure = (req) => {
+  const key = getLoginKey(req);
+  const now = Date.now();
+  const entry = loginAttempts.get(key);
+  if (!entry || entry.resetAt <= now) {
+    loginAttempts.set(key, { failures: 1, resetAt: now + LOGIN_WINDOW_MS });
+    return;
+  }
+  entry.failures += 1;
+};
+
+const clearLoginFailures = req => loginAttempts.delete(getLoginKey(req));
 
 const toPublicUser = (user) => ({
   _id: user._id,
@@ -33,13 +64,15 @@ const createSession = (user) => ({
 
 router.post('/register', async (req, res) => {
   try {
-    const username = typeof req.body.username === 'string' ? req.body.username.trim() : '';
-    const email = typeof req.body.email === 'string' ? req.body.email.trim().toLowerCase() : '';
-    const password = typeof req.body.password === 'string' ? req.body.password : '';
-    const confirmPassword = typeof req.body.confirmPassword === 'string' ? req.body.confirmPassword : '';
-    const campusRole = typeof req.body.campusRole === 'string' ? req.body.campusRole : '';
-    const department = typeof req.body.department === 'string' ? req.body.department.trim() : '';
-    const studyYear = typeof req.body.studyYear === 'string' ? req.body.studyYear : '';
+    const body = getRequestBody(req);
+    if (!body) return res.status(400).json({ error: 'A valid request body is required.' });
+    const username = typeof body.username === 'string' ? body.username.trim().toLowerCase() : '';
+    const email = typeof body.email === 'string' ? body.email.trim().toLowerCase() : '';
+    const password = typeof body.password === 'string' ? body.password : '';
+    const confirmPassword = typeof body.confirmPassword === 'string' ? body.confirmPassword : '';
+    const campusRole = typeof body.campusRole === 'string' ? body.campusRole : '';
+    const department = typeof body.department === 'string' ? body.department.trim() : '';
+    const studyYear = typeof body.studyYear === 'string' ? body.studyYear : '';
 
     if (username.length < 3 || username.length > 30) {
       return res.status(400).json({ error: 'Username must be between 3 and 30 characters.' });
@@ -65,22 +98,26 @@ router.post('/register', async (req, res) => {
 
 router.post('/login', async (req, res) => {
   try {
-    const username = typeof req.body.username === 'string' ? req.body.username.trim() : '';
-    const password = typeof req.body.password === 'string' ? req.body.password : '';
+    if (isLoginBlocked(req)) {
+      return res.status(429).json({ error: 'Too many sign-in attempts. Please try again later.' });
+    }
+    const body = getRequestBody(req);
+    if (!body) return res.status(400).json({ error: 'A valid request body is required.' });
+    const username = typeof body.username === 'string' ? body.username.trim().toLowerCase() : '';
+    const password = typeof body.password === 'string' ? body.password : '';
     const user = await User.findOne({ username }).select('+password');
-    if (!user || !password) return res.status(401).json({ error: 'Invalid username or password.' });
-
-    const hasPasswordHash = /^\$2[aby]\$/.test(user.password);
-    const passwordMatches = hasPasswordHash
-      ? await bcrypt.compare(password, user.password)
-      : password === user.password;
-    if (!passwordMatches) return res.status(401).json({ error: 'Invalid username or password.' });
-
-    if (!hasPasswordHash) {
-      user.password = await bcrypt.hash(password, 12);
-      await user.save();
+    if (!user || !password) {
+      recordLoginFailure(req);
+      return res.status(401).json({ error: 'Invalid username or password.' });
     }
 
+    const hasPasswordHash = /^\$2[aby]\$/.test(user.password);
+    if (!hasPasswordHash || !await bcrypt.compare(password, user.password)) {
+      recordLoginFailure(req);
+      return res.status(401).json({ error: 'Invalid username or password.' });
+    }
+
+    clearLoginFailures(req);
     res.json(createSession(user));
   } catch (err) {
     res.status(500).json({ error: 'Could not sign in. Please try again.' });
@@ -127,8 +164,10 @@ router.get('/profile', authenticate, (req, res) => {
 });
 
 router.patch('/profile', authenticate, async (req, res) => {
-  const { profilePhoto, email, currentPassword, newPassword, notificationPreferences } = req.body;
-  const updates = Object.keys(req.body);
+  const body = getRequestBody(req);
+  if (!body) return res.status(400).json({ error: 'A valid request body is required.' });
+  const { profilePhoto, email, currentPassword, newPassword, notificationPreferences } = body;
+  const updates = Object.keys(body);
   if (!updates.length || updates.some(key => !['profilePhoto', 'email', 'currentPassword', 'newPassword', 'notificationPreferences'].includes(key))) {
     return res.status(400).json({ error: 'Invalid profile update.' });
   }
@@ -152,30 +191,35 @@ router.patch('/profile', authenticate, async (req, res) => {
   }
 
   try {
+    const profileUpdates = {};
     if (email !== undefined) {
       const duplicate = await User.findOne({ email: normalizedEmail, _id: { $ne: req.user._id } });
       if (duplicate) return res.status(409).json({ error: 'That email address is already in use.' });
-      req.user.email = normalizedEmail;
+      profileUpdates.email = normalizedEmail;
     }
     if (currentPassword && newPassword) {
       const account = await User.findById(req.user._id).select('+password');
-      if (!account || !await bcrypt.compare(currentPassword, account.password)) {
+      if (!account || !/^\$2[aby]\$/.test(account.password) || !await bcrypt.compare(currentPassword, account.password)) {
         return res.status(401).json({ error: 'Your current password is incorrect.' });
       }
-      account.password = await bcrypt.hash(newPassword, 12);
-      await account.save();
+      profileUpdates.password = await bcrypt.hash(newPassword, 12);
     }
-    if (profilePhoto !== undefined) req.user.profilePhoto = profilePhoto || '';
+    if (profilePhoto !== undefined) profileUpdates.profilePhoto = profilePhoto || '';
     if (notificationPreferences) {
       const current = req.user.notificationPreferences || {};
-      req.user.notificationPreferences = {
+      profileUpdates.notificationPreferences = {
         status: current.status !== false, reply: current.reply !== false,
         comment: current.comment !== false, topic: current.topic !== false,
         ...notificationPreferences
       };
     }
-    await req.user.save();
-    res.json(toPublicUser(req.user));
+    const updatedUser = await User.findByIdAndUpdate(
+      req.user._id,
+      { $set: profileUpdates },
+      { new: true, runValidators: true }
+    );
+    if (!updatedUser) return res.status(404).json({ error: 'Account no longer exists.' });
+    res.json(toPublicUser(updatedUser));
   } catch {
     res.status(500).json({ error: 'Could not save your profile changes.' });
   }

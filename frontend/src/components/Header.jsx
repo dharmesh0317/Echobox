@@ -75,22 +75,22 @@ export default function Header({ searchQuery, setSearchQuery, currentUser, onLog
                 <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
               </svg>
             </span>
-            <input aria-label="Search feedback"
+            <input aria-label={location.pathname === '/saved' ? 'Search saved posts' : 'Search campus posts'}
               type="text" 
-              placeholder={location.pathname === '/saved' ? 'Search saved posts...' : 'Search archive...'} 
+              placeholder={location.pathname === '/saved' ? 'Search saved posts...' : 'Search campus posts...'} 
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
           </div>
         )}
 
-        {['/', '/saved'].includes(location.pathname) && <select className="feed-sort" aria-label="Sort feedback" value={sortMode} onChange={event => setSortMode(event.target.value)}><option value="newest">Newest</option><option value="oldest">Oldest</option><option value="top">Most upvoted</option><option value="discussed">Most discussed</option></select>}
+        {['/', '/saved'].includes(location.pathname) && <select className="feed-sort" aria-label="Sort campus posts" value={sortMode} onChange={event => setSortMode(event.target.value)}><option value="newest">Newest</option><option value="oldest">Oldest</option><option value="top">Most upvoted</option><option value="discussed">Most discussed</option></select>}
         <button className="theme-toggle" type="button" onClick={onToggleDarkMode} aria-label={darkMode ? 'Switch to light mode' : 'Switch to dark mode'} title={darkMode ? 'Switch to light mode' : 'Switch to dark mode'}>
           <svg viewBox="0 0 24 24" aria-hidden="true">{darkMode ? <path d="M20.5 15.5A8.5 8.5 0 0 1 8.5 3.5 8.5 8.5 0 1 0 20.5 15.5Z" /> : <><circle cx="12" cy="12" r="4" /><path d="M12 2v2m0 16v2M4.93 4.93l1.42 1.42m11.3 11.3 1.42 1.42M2 12h2m16 0h2M4.93 19.07l1.42-1.42m11.3-11.3 1.42-1.42" /></>}</svg>
           <span>{darkMode ? 'Light mode' : 'Dark mode'}</span>
         </button>
         {currentUser && <div className="notification-wrap" ref={notificationRef}>
-          <button className="notification-toggle" type="button" aria-label={`Open notifications${notifications.filter(item => !item.isRead).length ? `, ${notifications.filter(item => !item.isRead).length} unread` : ''}`} aria-controls="notification-popover" aria-expanded={showNotifications} onClick={() => setShowNotifications(value => !value)}>
+          <button className="notification-toggle" type="button" aria-label={`Open notifications${notifications.filter(item => !item.isRead).length ? `, ${notifications.filter(item => !item.isRead).length} unread` : ''}`} aria-controls="notification-popover" aria-expanded={showNotifications} onClick={() => { setShowNotifications(value => !value); setShowAccountMenu(false); }}>
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 9a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4" /></svg>
             {notifications.filter(item => !item.isRead).length > 0 && <span className="notification-count">{notifications.filter(item => !item.isRead).length > 9 ? '9+' : notifications.filter(item => !item.isRead).length}</span>}
           </button>

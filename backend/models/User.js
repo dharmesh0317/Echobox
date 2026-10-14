@@ -1,8 +1,8 @@
 const mongoose = require('mongoose');
 
 const UserSchema = new mongoose.Schema({
-  username: { type: String, required: true, unique: true, trim: true },
-  email: { type: String, trim: true, lowercase: true },
+  username: { type: String, required: true, unique: true, trim: true, lowercase: true },
+  email: { type: String, trim: true, lowercase: true, unique: true, sparse: true },
   campusRole: { type: String, enum: ['student', 'faculty', 'staff'], default: 'student' },
   department: { type: String, trim: true, maxlength: 80, default: '' },
   studyYear: { type: String, enum: ['', '1', '2', '3', '4', 'postgraduate'], default: '' },

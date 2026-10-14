@@ -10,8 +10,8 @@ export default function Sidebar({ selectedCategory, setSelectedCategory, openMod
   return (
     <aside id="site-sidebar" className={`sidebar ${isOpen ? 'sidebar-open' : ''}`}>
       <div className="sidebar-header">
-        <BrandLogo />
-        <button className="sidebar-close" type="button" onClick={onClose} aria-label="Close categories"><Icon name="close" /></button>
+        <Link className="sidebar-brand-link" to="/" onClick={onClose} aria-label="EchoBox home"><BrandLogo /></Link>
+        <button className="sidebar-close" type="button" onClick={onClose} aria-label="Close navigation menu"><Icon name="close" /></button>
       </div>
       
       {currentUser ? (
