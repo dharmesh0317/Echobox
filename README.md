@@ -1,208 +1,118 @@
 # EchoBox
 
-EchoBox is a full-stack campus community platform built with MongoDB, Express, React, and Node.js. Students and campus staff can share actionable feedback, ideas, discussions, and campus moments, then support, comment on, and follow the posts that matter to them.
+EchoBox is a campus community platform for sharing feedback, ideas, discussions, and campus moments. Students and staff can react to and discuss posts, while administrators can respond to feedback and review reports.
 
-## Features
+## What you can do
 
-- Anonymous-style campus feedback posts across categories like `Student Life`, `Teacher`, `Event`, and `Facility`
-- User registration and login
-- Campus registration details (role, department/program, and student year)
-- Signed-in user and administrator permissions enforced by the backend
-- Account profile photo saved to the user's account
-- Profile email and password editing
-- Upvotes, downvotes, comments, and reporting
-- Up to five resized JPEG images attached to a feedback post
-- Authors can edit their own feedback and attached images; administrators can edit any post
-- Four post types: actionable feedback, ideas, discussions, and campus moments
-- Admin progress statuses appear only on actionable feedback and ideas
-- Dedicated polls and optional idea polls with anonymous voting, community reactions, and comments
-- Anonymous, campus-alias, or profile attribution per post
-- Topic tags, topic follows with notifications, and saved posts
-- Feed filters by post type and topic, plus weekly community highlights
-- Feedback progress labels (submitted, under review, planned, resolved) with a public update history
-- Public administrator replies and updates on feedback
-- Followed suggestions with in-app notifications for status changes, replies, and comments
-- Feed sorting by newest, oldest, most upvoted, or most discussed
-- Persistent light and dark themes
-- Keyboard-friendly controls, visible focus states, and reduced-motion support
-- Custom EchoBox logo and matching browser icon
-- Updated sign-in and registration forms with accessible labels and password visibility control
-- Report reasons and moderation review history
-- Admin report queue with status/reason filters, per-report reject/actioned decisions, and moderation history
-- Admin feedback search and category filters, with six-month activity trends
-- Responsive mobile category navigation and explicit loading, error, and empty states
-- Backend validation tests using Node's built-in test runner
-- Automatic backend seeding for starter feedback data and a default admin user
+- Create an account with campus details and choose how each post is attributed: anonymously, with a campus alias, or with your profile.
+- Publish feedback, ideas, discussions, and campus moments, with optional images, topics, and polls.
+- Vote, comment, save posts, follow topics, and receive in-app notifications.
+- Track progress and public updates on actionable feedback and ideas.
+- Use admin tools to manage posts, respond to feedback, view activity, and review reports.
+- Browse a responsive interface with feed filters, sorting, and light or dark themes.
 
-## Project Structure
+## Tech stack
 
-```text
-EchoBox/
-|-- backend/
-|   |-- models/
-|   |-- routes/
-|   |-- seed.js
-|   |-- seedAdmin.js
-|   `-- server.js
-|-- frontend/
-|   |-- src/
-|   `-- package.json
-`-- README.md
-```
-
-## Prerequisites
-
-- For local development: Node.js 20.19 or newer (or Node.js 22.12 or newer), npm, and MongoDB
-- For Docker Compose: Docker Desktop or Docker Engine with the Compose plugin
+| Area | Technologies |
+| --- | --- |
+| Frontend | React, Vite, React Router, Axios |
+| Backend | Node.js, Express, Mongoose |
+| Database | MongoDB |
+| Deployment | Docker Compose, Nginx |
 
 ## Run with Docker Compose
 
-Docker Compose runs MongoDB, the Express API, and a production-built React frontend served by Nginx. The frontend proxies `/api` requests to the backend, so the browser uses the same origin for the app and API.
+Docker Compose starts MongoDB, the API, and the production frontend. From the project root:
 
-1. Install Docker Desktop (or Docker Engine with the Compose plugin).
-2. Create the root `.env` file from the example:
+1. Create the environment file:
 
    ```powershell
    Copy-Item .env.example .env
    ```
 
-3. Edit `.env` and replace `JWT_SECRET` with a private random secret of at least 32 bytes and `ADMIN_PASSWORD` with a strong password.
-4. From the project root, build and start the services:
+2. Edit `.env`. Set `JWT_SECRET` to a private random value of at least 32 bytes and choose a strong `ADMIN_PASSWORD` (at least 8 characters).
+3. Build and start the app:
 
    ```bash
    docker compose up --build
    ```
 
-Open the app at `http://localhost:8080`. The API is also available directly at `http://localhost:5000/api`. MongoDB data is persisted in the `mongo_data` Docker volume. Stop the services with `docker compose down`; the volume is kept for the next run.
+Open [http://localhost:8080](http://localhost:8080). The API is available at `http://localhost:5000/api`, and its health check is `http://localhost:5000/api/health`.
 
-The first backend start creates the configured admin account and seeds starter feedback if the posts collection is empty. Change `ADMIN_PASSWORD` before the first run. If the admin account already exists, changing the environment variable does not change its existing password.
+Stop the services with `docker compose down`. MongoDB data remains in the `mongo_data` volume. To remove the database volume as well, run `docker compose down --volumes`.
 
-The root `.env` is only used by Compose. For the local non-container setup below, configure `backend/.env` as described there.
+The admin account is created on the first backend startup. Changing `ADMIN_PASSWORD` later does not change an existing account's password. Starter feedback is inserted only when the posts collection is empty.
 
-## Setup
+## Run locally
 
-### 1. Install backend dependencies
+### Requirements
 
-```bash
-cd backend
-npm install
-```
+- Node.js 20.19+ or 22.12+
+- npm
+- MongoDB running locally or a MongoDB connection string
 
-Create `backend/.env` from `backend/.env.example`, then set `MONGO_URI`, a private `JWT_SECRET`, and a private `ADMIN_PASSWORD`. Use a random `JWT_SECRET` of at least 32 bytes. The development fallback secret changes when the backend restarts, which signs out existing sessions.
+### Configure and install
 
-In PowerShell, copy the example with:
+In PowerShell, create the backend environment file and install dependencies:
 
 ```powershell
-Copy-Item .env.example .env
-```
-
-### 2. Install frontend dependencies
-
-```bash
-cd ../frontend
+Copy-Item backend/.env.example backend/.env
+cd backend
 npm install
 ```
 
-## Running Locally
+Edit `backend/.env` and set `MONGO_URI`, `JWT_SECRET` (a private random value of at least 32 bytes), and `ADMIN_PASSWORD` (at least 8 characters). The example URI points to a local MongoDB database.
 
-The backend is also the API server. Start it before the frontend, and keep both processes running in separate terminals from the project root. The Vite development server proxies frontend `/api` requests to the backend API at `http://localhost:5000` by default.
+Install the frontend dependencies in a second terminal, from the project root:
 
-### Terminal 1: Start the backend and API
+```powershell
+cd frontend
+npm install
+```
 
-From the project root:
+### Start the app
+
+Start the backend from the `backend` directory:
 
 ```bash
-cd backend
 npm start
 ```
 
-The backend and API run on `http://localhost:5000`.
+Then, in another terminal, start the frontend from the `frontend` directory:
 
-The API base URL for local development is:
+```bash
+npm run dev
+```
+
+Open the URL printed by Vite, usually [http://localhost:5173](http://localhost:5173). Vite forwards `/api` requests to `http://localhost:5000` by default. Set `VITE_BACKEND_URL` in `frontend/.env` to use a different backend for the Vite proxy. For a separately hosted API, set `VITE_API_URL` to its API base URL and include the frontend origin in the backend's `CORS_ORIGINS`.
+
+On startup, the backend connects to MongoDB, applies legacy data migrations, creates the admin account if needed, and seeds starter feedback if there are no posts. In local development only, if `ADMIN_PASSWORD` is unset, the admin password defaults to `password`; set your own value before using the app. If `JWT_SECRET` is unset, a temporary secret is generated and existing sessions expire when the backend restarts. Production requires `JWT_SECRET` and `ADMIN_PASSWORD`.
+
+## Useful commands
+
+Run each command from its package directory.
+
+| Directory | Command | Purpose |
+| --- | --- | --- |
+| `frontend` | `npm run dev` | Start the Vite development server |
+| `frontend` | `npm run build` | Create a production build |
+| `frontend` | `npm run preview` | Preview the production build |
+| `frontend` | `npm run lint` | Run ESLint |
+| `backend` | `npm start` | Start the API server |
+| `backend` | `npm test` | Run backend validation tests |
+
+## Project layout
 
 ```text
-http://localhost:5000/api
+EchoBox/
+├── backend/
+│   ├── models/          # Mongoose models
+│   ├── middleware/      # Authentication and authorization
+│   ├── routes/          # API routes
+│   ├── test/            # Backend tests
+│   └── server.js        # Express entry point
+├── frontend/
+│   └── src/             # React application
+├── compose.yaml
+└── README.md
 ```
-
-For example, the public posts endpoint is available at `http://localhost:5000/api/posts` when the backend is running.
-
-### Terminal 2: Start the frontend
-
-From the project root:
-
-```bash
-cd frontend
-npm run dev
-```
-
-Vite prints the frontend URL in the terminal (usually `http://localhost:5173`).
-
-Open the frontend URL in a browser. Requests made by the frontend to `/api` are forwarded to the backend API automatically. To use a different backend locally, set `VITE_BACKEND_URL` in `frontend/.env`. For a separately hosted API, set `VITE_API_URL` to its API base URL and add the frontend origin to `CORS_ORIGINS` in `backend/.env`.
-
-When the backend starts, it will:
-
-- connect to MongoDB
-- create the default admin user if it does not already exist
-- insert starter feedback posts only if the posts collection is empty
-- hash passwords and issue seven-day signed login tokens
-
-If `ADMIN_PASSWORD` is not set, the local development admin uses:
-
-- Username: `admin`
-- Password: `password`
-
-Set `ADMIN_PASSWORD` before the first backend start to choose a different admin password. Existing plain-text account passwords are upgraded to hashes at backend startup, and users can continue signing in with their current passwords.
-
-## Manual Seeding
-
-If you ever want to run the seed files directly from the `backend` folder:
-
-```bash
-node seed.js
-node seedAdmin.js
-```
-
-These scripts are safe to rerun:
-
-- `seed.js` skips inserting posts if posts already exist
-- `seedAdmin.js` skips creating the admin user if it already exists
-
-Admin APIs verify the signed token and admin role on the backend. Report reasons and review decisions are kept with the feedback for administrators; reporter details are hidden from the public feed.
-
-## Available Scripts
-
-### Frontend
-
-```bash
-npm run dev
-npm run build
-npm run preview
-```
-
-### Backend
-
-```bash
-npm start
-npm test
-node seed.js
-node seedAdmin.js
-```
-
-## Admin Panel Notes
-
-- The `Total Users` card is populated from backend user data
-- The `Total Feedback` card is based on stored posts
-- `Most Active Category` is calculated from the current posts list
-- System notifications are fetched from the backend notifications endpoint
-
-## Tech Stack
-
-- React
-- Vite
-- React Router
-- Axios
-- Node.js
-- Express
-- MongoDB
-- Mongoose
-- Vanilla CSS
