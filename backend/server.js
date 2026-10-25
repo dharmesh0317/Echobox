@@ -27,6 +27,11 @@ app.use(cors({
 }));
 app.use(express.json({ limit: '2mb' }));
 
+app.get('/api/health', (_req, res) => {
+  const connected = mongoose.connection.readyState === 1;
+  res.status(connected ? 200 : 503).json({ status: connected ? 'ok' : 'starting' });
+});
+
 mongoose.connect(process.env.MONGO_URI)
   .then(async () => {
     console.log('MongoDB Connected');

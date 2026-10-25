@@ -51,6 +51,7 @@ const toPublicUser = (user) => ({
   campusRole: user.campusRole || 'student',
   department: user.department || '',
   studyYear: user.studyYear || '',
+  roleTitle: user.roleTitle || '',
   followedPosts: user.followedPosts || [],
   savedPosts: user.savedPosts || [],
   followedTopics: user.followedTopics || [],
@@ -73,6 +74,7 @@ router.post('/register', async (req, res) => {
     const campusRole = typeof body.campusRole === 'string' ? body.campusRole : '';
     const department = typeof body.department === 'string' ? body.department.trim() : '';
     const studyYear = typeof body.studyYear === 'string' ? body.studyYear : '';
+    const roleTitle = typeof body.roleTitle === 'string' ? body.roleTitle.trim() : '';
 
     if (username.length < 3 || username.length > 30) {
       return res.status(400).json({ error: 'Username must be between 3 and 30 characters.' });
@@ -81,14 +83,14 @@ router.post('/register', async (req, res) => {
     const passwordError = validatePassword(password);
     if (passwordError) return res.status(400).json({ error: passwordError });
     if (password !== confirmPassword) return res.status(400).json({ error: 'Passwords do not match.' });
-    const campusDetailsError = validateCampusDetails(campusRole, department, studyYear);
+    const campusDetailsError = validateCampusDetails(campusRole, department, studyYear, roleTitle);
     if (campusDetailsError) return res.status(400).json({ error: campusDetailsError });
 
     const existingUser = await User.findOne({ $or: [{ username }, { email }] });
     if (existingUser) return res.status(409).json({ error: 'Username or email is already in use.' });
 
     const passwordHash = await bcrypt.hash(password, 12);
-    const user = await User.create({ username, email, password: passwordHash, campusRole, department, studyYear });
+    const user = await User.create({ username, email, password: passwordHash, campusRole, department, studyYear, roleTitle });
     res.status(201).json(createSession(user));
   } catch (err) {
     if (err.code === 11000) return res.status(409).json({ error: 'Username or email is already in use.' });
@@ -126,7 +128,7 @@ router.post('/login', async (req, res) => {
 
 router.get('/users', authenticate, requireAdmin, async (req, res) => {
   try {
-    const users = await User.find({}, '_id username email isAdmin campusRole department studyYear').sort({ username: 1 });
+    const users = await User.find({}, '_id username email isAdmin campusRole department studyYear roleTitle').sort({ username: 1 });
     res.json(users);
   } catch {
     res.status(500).json({ error: 'Could not load users.' });

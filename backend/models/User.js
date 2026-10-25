@@ -6,6 +6,7 @@ const UserSchema = new mongoose.Schema({
   campusRole: { type: String, enum: ['student', 'faculty', 'staff'], default: 'student' },
   department: { type: String, trim: true, maxlength: 80, default: '' },
   studyYear: { type: String, enum: ['', '1', '2', '3', '4', 'postgraduate'], default: '' },
+  roleTitle: { type: String, trim: true, maxlength: 80, default: '' },
   password: { type: String, required: true, select: false },
   profilePhoto: { type: String, default: '' },
   followedPosts: [{ type: String }],

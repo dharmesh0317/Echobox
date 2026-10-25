@@ -40,11 +40,13 @@ function validatePassword(password) {
   return null;
 }
 
-function validateCampusDetails(campusRole, department, studyYear) {
+function validateCampusDetails(campusRole, department, studyYear, roleTitle = '') {
   if (!CAMPUS_ROLES.includes(campusRole)) return 'Choose a valid campus role.';
   if (typeof department !== 'string' || department.trim().length < 2 || department.trim().length > 80) return 'Enter a department or program between 2 and 80 characters.';
   if (campusRole === 'student' && !STUDY_YEARS.includes(studyYear)) return 'Choose your current academic year.';
   if (campusRole !== 'student' && studyYear) return 'Academic year is only required for students.';
+  if (typeof roleTitle !== 'string' || roleTitle.trim().length > 80) return 'Role title must be 80 characters or fewer.';
+  if (campusRole === 'student' && roleTitle.trim()) return 'Role title is only used for faculty and staff.';
   return null;
 }
 

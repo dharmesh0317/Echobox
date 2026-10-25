@@ -44,9 +44,14 @@ export default function Profile({ currentUser, posts = [], onProfileUpdate }) {
   const [message, setMessage] = useState('');
   const [isError, setIsError] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [emailFeedback, setEmailFeedback] = useState(null);
+  const [passwordFeedback, setPasswordFeedback] = useState(null);
+  const [notificationFeedback, setNotificationFeedback] = useState(null);
   const [email, setEmail] = useState(currentUser.email || '');
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
   const [notificationPreferences, setNotificationPreferences] = useState({ status: true, reply: true, comment: true, topic: true, ...(currentUser.notificationPreferences || {}) });
   const migrationAttempted = useRef(false);
 
@@ -119,35 +124,54 @@ export default function Profile({ currentUser, posts = [], onProfileUpdate }) {
 
   const saveEmail = async event => {
     event.preventDefault();
+    setEmailFeedback(null);
     setIsSaving(true);
     try {
       const res = await api.patch('/auth/profile', { email });
       onProfileUpdate(res.data);
+      setEmailFeedback({ type: 'success', text: 'Email address updated.' });
       setIsError(false); setMessage('Email address updated.');
     } catch (error) {
-      setIsError(true); setMessage(error.response?.data?.error || 'Could not update your email address.');
+      const text = error.response?.data?.error || 'Could not update your email address.';
+      setEmailFeedback({ type: 'error', text });
+      setIsError(true); setMessage(text);
     } finally { setIsSaving(false); }
   };
 
   const savePassword = async event => {
     event.preventDefault();
+    setPasswordFeedback(null);
     setIsSaving(true);
     try {
       await api.patch('/auth/profile', { currentPassword, newPassword });
-      setCurrentPassword(''); setNewPassword(''); setIsError(false); setMessage('Password updated successfully.');
+      setCurrentPassword(''); setNewPassword(''); setShowCurrentPassword(false); setShowNewPassword(false); setIsError(false); setMessage('Password updated successfully.');
+      setPasswordFeedback({ type: 'success', text: 'Password updated successfully.' });
     } catch (error) {
-      setIsError(true); setMessage(error.response?.data?.error || 'Could not update your password.');
+      const text = error.response?.data?.error || 'Could not update your password.';
+      setPasswordFeedback({ type: 'error', text });
+      setIsError(true); setMessage(text);
     } finally { setIsSaving(false); }
   };
 
   const saveNotificationPreferences = async event => {
-    event.preventDefault(); setIsSaving(true);
+    event.preventDefault(); setNotificationFeedback(null); setIsSaving(true);
     try {
       const res = await api.patch('/auth/profile', { notificationPreferences });
       onProfileUpdate(res.data); setIsError(false); setMessage('Notification preferences saved.');
-    } catch (error) { setIsError(true); setMessage(error.response?.data?.error || 'Could not save notification preferences.'); }
+      setNotificationFeedback({ type: 'success', text: 'Notification preferences saved.' });
+    } catch (error) {
+      const text = error.response?.data?.error || 'Could not save notification preferences.';
+      setNotificationFeedback({ type: 'error', text });
+      setIsError(true); setMessage(text);
+    }
     finally { setIsSaving(false); }
   };
+
+  const renderFeedback = feedback => feedback && (
+    <p className={`profile-form-feedback ${feedback.type === 'error' ? 'profile-form-feedback-error' : ''}`} role={feedback.type === 'error' ? 'alert' : 'status'}>
+      {feedback.text}
+    </p>
+  );
 
   const role = currentUser.isAdmin
     ? 'Administrator'
@@ -157,7 +181,7 @@ export default function Profile({ currentUser, posts = [], onProfileUpdate }) {
   const followedCount = (currentUser.followedPosts?.length || 0) + (currentUser.followedTopics?.length || 0);
 
   return (
-    <main className="profile-page">
+    <main className="profile-page" id="primary-content" tabIndex={-1}>
       <div className="profile-heading">
         <span className="profile-eyebrow">YOUR ACCOUNT</span>
         <h1>Profile</h1>
@@ -206,8 +230,9 @@ export default function Profile({ currentUser, posts = [], onProfileUpdate }) {
                 <span>Campus role</span>
                 <strong>{currentUser.isAdmin ? 'Administrator' : (currentUser.campusRole || 'student').replace(/^./, letter => letter.toUpperCase())}</strong>
               </div>
-              {!currentUser.isAdmin && <div className="profile-field"><span>Department / program</span><strong>{currentUser.department || 'Not provided'}</strong></div>}
+              {!currentUser.isAdmin && <div className="profile-field"><span>{currentUser.campusRole === 'student' ? 'Department / program' : 'Department'}</span><strong>{currentUser.department || 'Not provided'}</strong></div>}
               {!currentUser.isAdmin && currentUser.campusRole === 'student' && <div className="profile-field"><span>Academic year</span><strong>{currentUser.studyYear === 'postgraduate' ? 'Postgraduate' : currentUser.studyYear ? `${currentUser.studyYear}${currentUser.studyYear === '1' ? 'st' : currentUser.studyYear === '2' ? 'nd' : currentUser.studyYear === '3' ? 'rd' : 'th'} year` : 'Not provided'}</strong></div>}
+              {!currentUser.isAdmin && currentUser.campusRole !== 'student' && currentUser.roleTitle && <div className="profile-field"><span>{currentUser.campusRole === 'faculty' ? 'Faculty title' : 'Job title'}</span><strong>{currentUser.roleTitle}</strong></div>}
               <div className="profile-field profile-field-privacy">
                 <span>Post privacy</span>
                 <strong>Choose anonymous, alias, or profile for each post</strong>
@@ -229,21 +254,24 @@ export default function Profile({ currentUser, posts = [], onProfileUpdate }) {
       <div className="profile-settings-grid">
         <form className="profile-settings-card" onSubmit={saveEmail}>
           <h2>Email address</h2><p>Use an email address you can access.</p>
-          <label>Email<input type="email" required value={email} onChange={event => setEmail(event.target.value)} autoComplete="email" /></label>
+          <label>Email<input type="email" required value={email} onChange={event => { setEmail(event.target.value); setEmailFeedback(null); }} autoComplete="email" /></label>
           <button type="submit" disabled={isSaving || email === currentUser.email}>Save email</button>
+          {renderFeedback(emailFeedback)}
         </form>
         <form className="profile-settings-card" onSubmit={savePassword}>
           <h2>Change password</h2><p>Choose a password with at least 8 characters.</p>
-          <label>Current password<input type="password" required minLength="8" value={currentPassword} onChange={event => setCurrentPassword(event.target.value)} autoComplete="current-password" /></label>
-          <label>New password<input type="password" required minLength="8" maxLength="128" value={newPassword} onChange={event => setNewPassword(event.target.value)} autoComplete="new-password" /></label>
+          <label>Current password<div className="profile-password-control"><input type={showCurrentPassword ? 'text' : 'password'} required minLength="8" value={currentPassword} onChange={event => { setCurrentPassword(event.target.value); setPasswordFeedback(null); }} autoComplete="current-password" /><button type="button" className="profile-password-toggle" aria-label={showCurrentPassword ? 'Hide current password' : 'Show current password'} aria-pressed={showCurrentPassword} onClick={() => setShowCurrentPassword(value => !value)}><Icon name={showCurrentPassword ? 'eyeOff' : 'eye'} size={18} /></button></div></label>
+          <label>New password<div className="profile-password-control"><input type={showNewPassword ? 'text' : 'password'} required minLength="8" maxLength="128" value={newPassword} onChange={event => { setNewPassword(event.target.value); setPasswordFeedback(null); }} autoComplete="new-password" /><button type="button" className="profile-password-toggle" aria-label={showNewPassword ? 'Hide new password' : 'Show new password'} aria-pressed={showNewPassword} onClick={() => setShowNewPassword(value => !value)}><Icon name={showNewPassword ? 'eyeOff' : 'eye'} size={18} /></button></div></label>
           <button type="submit" disabled={isSaving || !currentPassword || !newPassword}>Update password</button>
+          {renderFeedback(passwordFeedback)}
         </form>
       </div>
 
       <form className="profile-settings-card profile-notification-settings" onSubmit={saveNotificationPreferences}>
         <h2>Notification preferences</h2><p>Choose which EchoBox activity can send you an in-app notification.</p>
-        {[[ 'status', 'Feedback status updates' ], [ 'reply', 'Official admin replies' ], [ 'comment', 'Comments on posts you follow' ], [ 'topic', 'New posts in followed topics' ]].map(([key, label]) => <label className="notification-preference" key={key}><span>{label}</span><input type="checkbox" checked={notificationPreferences[key]} onChange={event => setNotificationPreferences(current => ({ ...current, [key]: event.target.checked }))} /></label>)}
+        {[[ 'status', 'Feedback status updates' ], [ 'reply', 'Official admin replies' ], [ 'comment', 'Comments on posts you follow' ], [ 'topic', 'New posts in followed topics' ]].map(([key, label]) => <label className="notification-preference" key={key}><span>{label}</span><input type="checkbox" checked={notificationPreferences[key]} onChange={event => { setNotificationPreferences(current => ({ ...current, [key]: event.target.checked })); setNotificationFeedback(null); }} /></label>)}
         <button type="submit" disabled={isSaving}>{isSaving ? 'Saving...' : 'Save notification settings'}</button>
+        {renderFeedback(notificationFeedback)}
       </form>
 
       <aside className="profile-privacy-note">

@@ -40,12 +40,29 @@ function FeedbackImageCarousel({ images, postId }) {
 }
 
 const typeLabels = { feedback: 'Feedback', idea: 'Idea', discussion: 'Discussion', moment: 'Campus moment', poll: 'Poll' };
-const reactions = [['agree', 'heart', 'Agree'], ['relate', 'message', 'Relate'], ['helpful', 'sparkle', 'Helpful'], ['congrats', 'impact', 'Congrats']];
+const typeIcons = { feedback: 'category', idea: 'idea', discussion: 'message', moment: 'sparkle', poll: 'poll' };
+const reactions = [['agree', 'heart', 'Agree'], ['relate', 'message', 'Relate'], ['helpful', 'sparkle', 'Helpful'], ['congrats', 'trophy', 'Congrats']];
 const availableTopics = ['Study life', 'Clubs', 'Food', 'Events', 'Wellbeing', 'Campus life'];
+const feedbackStages = [['submitted', 'Submitted'], ['under-review', 'In review'], ['planned', 'Planned'], ['resolved', 'Resolved']];
+
+function FeedbackProgress({ post }) {
+  const activeIndex = Math.max(0, feedbackStages.findIndex(([status]) => status === (post.status || 'submitted')));
+  const history = post.statusHistory?.length ? post.statusHistory : [{ status: post.status || 'submitted', updatedAt: post.createdAt }];
+  const latestUpdate = post.statusUpdatedAt || history.at(-1)?.updatedAt || post.createdAt;
+  return <div className="post-progress-wrap"><ol className="post-progress" aria-label={`Feedback progress: ${(post.status || 'submitted').replace('-', ' ')}`}>
+    {feedbackStages.map(([status, label], index) => <li key={status} className={index < activeIndex ? 'complete' : index === activeIndex ? 'current' : ''} aria-current={index === activeIndex ? 'step' : undefined}><span className="post-progress-dot" /><span>{label}</span></li>)}
+  </ol><span className="post-progress-updated">Updated {new Date(latestUpdate).toLocaleDateString()}</span></div>;
+}
 
 function WeeklyHighlight({ post }) {
-  if (!post) return <section className="highlight-card"><div className="highlight-badge"><Icon name="sparkle" size={15} /> COMMUNITY FEED</div><h2>Your campus story starts here</h2><p>Share an idea, ask the campus, or post a moment from your week.</p></section>;
-  return <section className="highlight-card"><div className="highlight-badge"><Icon name="sparkle" size={15} /> THIS WEEK IN ECHOBOX</div><h2>{post.content.length > 95 ? post.content.slice(0, 95) + '...' : post.content}</h2><p>{typeLabels[post.postType || 'feedback']} | {post.tag} | {post.commentList?.length || 0} comments | {post.upvotedBy?.length || 0} supporters</p><a href={`#post-${post._id}`}>Join the conversation</a></section>;
+  if (!post) return <section className="highlight-card highlight-empty">
+    <div className="highlight-copy"><div className="highlight-badge"><Icon name="sparkle" size={15} /> THE CAMPUS CONVERSATION</div><h2>One campus. Many voices.</h2><p>Share an idea, raise an issue, or find out what your campus is thinking.</p><a className="highlight-cta" href="#feed-composer">Start a conversation <Icon name="arrowRight" size={16} /></a></div>
+    <div className="highlight-art" aria-hidden="true"><span className="highlight-orbit highlight-orbit-one" /><span className="highlight-orbit highlight-orbit-two" /><span className="highlight-art-card highlight-art-card-one"><Icon name="idea" size={17} /> Ideas</span><span className="highlight-art-card highlight-art-card-two"><Icon name="message" size={17} /> Feedback</span><span className="highlight-art-center"><Icon name="sparkle" size={22} /></span></div>
+  </section>;
+  return <section className="highlight-card highlight-featured">
+    <div className="highlight-copy"><div className="highlight-badge"><Icon name="sparkle" size={15} /> THIS WEEK IN ECHOBOX</div><h2>{post.content.length > 95 ? post.content.slice(0, 95) + '...' : post.content}</h2><div className="highlight-footer"><p><span>{typeLabels[post.postType || 'feedback']}</span><i /> <span>{post.tag}</span><i /> <span>{post.commentList?.length || 0} comments</span><i /> <span>{post.upvotedBy?.length || 0} supporters</span></p><a className="highlight-cta" href={`#post-${post._id}`}>Join the conversation <Icon name="arrowRight" size={16} /></a></div></div>
+    <div className="highlight-feature-mark" aria-hidden="true"><Icon name="message" size={33} /><span>VOICE<br />MATTERS</span></div>
+  </section>;
 }
 
 function Poll({ post, onVote, currentUser }) {
@@ -59,10 +76,14 @@ function Poll({ post, onVote, currentUser }) {
   })}<small>{totalVotes} {totalVotes === 1 ? 'vote' : 'votes'} | {post.poll.isClosed ? 'Poll closed | final results' : currentUser ? 'Select an option to vote or change your vote.' : 'Sign in to vote.'}</small>{post.poll.closesAt && !post.poll.isClosed && <small>Closes {new Date(post.poll.closesAt).toLocaleDateString()}</small>}{post.poll.isClosed && <Link to={`/polls/${post._id}/results`}>View poll results</Link>}</section>;
 }
 
-export default function Feed({ posts, onUpvote, onDownvote, onReport, onAddComment, onFollow, onSave, onFollowTopic, onReaction, onPollVote, onEdit, onCreatePost, selectedPostType, setSelectedPostType, selectedTopic, setSelectedTopic, savedOnly, setSavedOnly, weeklyHighlight, currentUser, loading, error, onRetry, feedMode, setFeedMode, setSortMode, popularTopics = [], featuredPoll, isSavedPage = false }) {
+export default function Feed({ posts, onUpvote, onDownvote, onReport, onAddComment, onFollow, onSave, onFollowTopic, onReaction, onPollVote, onResolutionFeedback, onEdit, onCreatePost, selectedPostType, setSelectedPostType, selectedTopic, setSelectedTopic, savedOnly, setSavedOnly, weeklyHighlight, currentUser, loading, error, onRetry, feedMode, setFeedMode, setSortMode, popularTopics = [], featuredPoll, isSavedPage = false }) {
   const [expandedPostId, setExpandedPostId] = useState(null);
   const [commentText, setCommentText] = useState("");
   const [replyTo, setReplyTo] = useState(null);
+  const [pendingAction, setPendingAction] = useState('');
+  const [commentSubmitting, setCommentSubmitting] = useState(false);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const activeFilterCount = Number(selectedPostType !== 'all') + Number(selectedTopic !== 'all') + Number(savedOnly && !isSavedPage);
 
   const toggleComments = (postId) => {
     if (expandedPostId === postId) {
@@ -74,25 +95,43 @@ export default function Feed({ posts, onUpvote, onDownvote, onReport, onAddComme
     }
   };
 
-  const submitComment = (e, postId) => {
+  const submitComment = async (e, postId) => {
     e.preventDefault();
-    if(commentText.trim()) {
-      onAddComment(postId, commentText, replyTo?._id || '');
-      setCommentText("");
-      setReplyTo(null);
+    const text = commentText.trim();
+    if (!text || commentSubmitting) return;
+    setCommentSubmitting(true);
+    try {
+      const succeeded = await onAddComment(postId, text, replyTo?._id || '');
+      if (succeeded) {
+        setCommentText('');
+        setReplyTo(null);
+      }
+    } finally {
+      setCommentSubmitting(false);
+    }
+  };
+
+  const runPostAction = async (key, action) => {
+    if (pendingAction) return;
+    setPendingAction(key);
+    try {
+      await action();
+    } finally {
+      setPendingAction('');
     }
   };
 
   return (
-    <main className="feed-container">
+    <main className="feed-container" id="primary-content" tabIndex={-1}>
       <div className={`feed-layout ${isSavedPage ? 'saved-feed-layout' : ''}`}>
       <div className="feed-content">
         {isSavedPage && <header className="saved-page-heading"><span className="rail-eyebrow">YOUR LIBRARY</span><h1>Saved posts</h1><p>Posts you bookmarked to come back to.</p></header>}
         {!isSavedPage && <>
         <WeeklyHighlight post={weeklyHighlight} />
-        <section className="feed-composer" aria-label="Create a post">
+        <section className="feed-composer" id="feed-composer" aria-label="Create a post">
+          <div className="composer-intro"><span>YOUR CAMPUS, YOUR VOICE</span><strong>Start a conversation</strong></div>
           <div className="composer-avatar" aria-hidden="true">{currentUser?.username?.slice(0, 1).toUpperCase() || 'E'}</div>
-          <button className="composer-prompt" type="button" onClick={() => onCreatePost('feedback')}>Share something with campus...</button>
+          <button className="composer-prompt" type="button" onClick={() => onCreatePost('feedback')}>What’s happening on campus?</button>
           <div className="composer-quick-actions">
             <button type="button" onClick={() => onCreatePost('feedback')}><Icon name="category" size={15} /> Feedback</button>
             <button type="button" onClick={() => onCreatePost('idea')}><Icon name="idea" size={15} /> Idea</button>
@@ -105,22 +144,37 @@ export default function Feed({ posts, onUpvote, onDownvote, onReport, onAddComme
           {!isSavedPage && <div className="feed-mode-tabs" role="tablist" aria-label="Choose feed">
             {[[ 'for-you', 'For you' ], [ 'latest', 'Latest' ], [ 'following', 'Following' ]].map(([mode, label]) => <button key={mode} type="button" role="tab" aria-selected={feedMode === mode} className={feedMode === mode ? 'active' : ''} onClick={() => { setFeedMode(mode); setSortMode(mode === 'for-you' ? 'top' : 'newest'); }}>{label}</button>)}
           </div>}
-          <section className="community-filters" aria-label="Community feed filters">
-            <label>Type<select value={selectedPostType} onChange={event => setSelectedPostType(event.target.value)}><option value="all">Everything</option><option value="feedback">Feedback</option><option value="idea">Ideas</option><option value="discussion">Discussions</option><option value="moment">Campus moments</option><option value="poll">Polls</option></select></label>
-            <label>Topic<select value={selectedTopic} onChange={event => setSelectedTopic(event.target.value)}><option value="all">All topics</option>{availableTopics.map(topic => <option key={topic} value={topic}>{topic}</option>)}</select></label>
-            {currentUser && !isSavedPage && <button type="button" className={savedOnly ? 'active' : ''} onClick={() => setSavedOnly(value => !value)} aria-pressed={savedOnly}>{savedOnly ? 'Saved only' : 'Saved'}</button>}
-            {currentUser && <label className="follow-topic-control">Follow topic<select value="" onChange={event => { if (event.target.value) onFollowTopic(event.target.value); }}><option value="">Choose</option>{availableTopics.filter(topic => !currentUser.followedTopics?.includes(topic)).map(topic => <option key={topic}>{topic}</option>)}</select></label>}
-          </section>
-          {currentUser?.followedTopics?.length > 0 && <div className="followed-topic-list"><span>Following topics</span>{currentUser.followedTopics.map(topic => <button key={topic} type="button" className={selectedTopic === topic ? 'active' : ''} onClick={() => setSelectedTopic(selectedTopic === topic ? 'all' : topic)}>{topic}</button>)}</div>}
+          <div className="feed-filter-heading">
+            <span className="feed-filter-summary">{activeFilterCount ? 'Filters are active' : 'Explore campus posts'}</span>
+            <button type="button" className={`feed-filter-trigger ${filtersOpen ? 'is-open' : ''}`} aria-expanded={filtersOpen} aria-controls="feed-filter-panel" onClick={() => setFiltersOpen(open => !open)}>
+              <Icon name="category" size={15} />
+              {filtersOpen ? 'Hide filters' : 'Filters'}
+              {activeFilterCount > 0 && <span className="feed-filter-count">{activeFilterCount}</span>}
+            </button>
+          </div>
+          <div className="feed-filter-panel" id="feed-filter-panel" hidden={!filtersOpen}>
+            <section className="community-filters" aria-label="Community feed filters">
+              <label>Post type<select value={selectedPostType} onChange={event => setSelectedPostType(event.target.value)}><option value="all">Everything</option><option value="feedback">Feedback</option><option value="idea">Ideas</option><option value="discussion">Discussions</option><option value="moment">Campus moments</option><option value="poll">Polls</option></select></label>
+              <label>Topic<select value={selectedTopic} onChange={event => setSelectedTopic(event.target.value)}><option value="all">All topics</option>{availableTopics.map(topic => <option key={topic} value={topic}>{topic}</option>)}</select></label>
+              {currentUser && !isSavedPage && <button type="button" className={savedOnly ? 'active' : ''} onClick={() => setSavedOnly(value => !value)} aria-pressed={savedOnly}><Icon name="bookmark" size={14} />{savedOnly ? 'Saved posts only' : 'Show saved only'}</button>}
+              {currentUser && <label className="follow-topic-control">Follow a topic<select value="" onChange={event => { if (event.target.value) onFollowTopic(event.target.value); }}><option value="">Choose a topic</option>{availableTopics.filter(topic => !currentUser.followedTopics?.includes(topic)).map(topic => <option key={topic}>{topic}</option>)}</select></label>}
+              {(selectedTopic !== 'all' || selectedPostType !== 'all' || savedOnly) && <button type="button" className="feed-clear-filters" onClick={() => { setSelectedTopic('all'); setSelectedPostType('all'); setSavedOnly(false); }}>Clear all</button>}
+            </section>
+            {!isSavedPage && <div className="feed-topic-shortcuts" aria-label="Popular topic shortcuts"><span>Trending</span><button type="button" className={selectedTopic === 'all' ? 'active' : ''} onClick={() => setSelectedTopic('all')}>All topics</button>{popularTopics.slice(0, 5).map(([topic, count]) => <button type="button" key={topic} className={selectedTopic === topic ? 'active' : ''} onClick={() => setSelectedTopic(selectedTopic === topic ? 'all' : topic)}>{topic}<small>{count}</small></button>)}</div>}
+            {currentUser?.followedTopics?.length > 0 && <div className="followed-topic-list"><span>Following topics</span>{currentUser.followedTopics.map(topic => <button key={topic} type="button" className={selectedTopic === topic ? 'active' : ''} onClick={() => setSelectedTopic(selectedTopic === topic ? 'all' : topic)}>{topic}</button>)}</div>}
+          </div>
         </div>
         {/* Feedback Posts */}
         <div className="posts-list">
           {loading ? (
-            <div className="feed-state" role="status">Loading posts…</div>
+            <div className="feed-loading-state" role="status" aria-live="polite">
+              <span className="feed-loading-label">Loading campus posts</span>
+              <div className="feed-loading-skeletons" aria-hidden="true">{[0, 1].map(item => <div className="feed-loading-card" key={item}><div className="feed-skeleton-chips"><i /><i /><i /></div><i className="feed-skeleton-line" /><i className="feed-skeleton-line feed-skeleton-line-short" /><i className="feed-skeleton-action" /></div>)}</div>
+            </div>
           ) : error ? (
-            <div className="feed-state feed-state-error" role="alert">{error}<button onClick={onRetry}>Retry</button></div>
+            <div className="feed-state feed-state-error" role="alert"><strong>We couldn’t load the feed</strong><p>{error}</p><button onClick={onRetry}>Try again</button></div>
           ) : posts.length === 0 ? (
-            <div className="feed-state">{isSavedPage ? 'You have no saved posts yet. Save a post from the feed and it will appear here.' : 'No posts found. Try adjusting your filters or be the first to share.'}</div>
+            <div className="feed-state feed-empty-state" role="status"><span className="feed-empty-icon" aria-hidden="true"><Icon name={isSavedPage ? 'bookmark' : 'message'} size={20} /></span><strong>{isSavedPage ? 'Your saved list is empty' : 'No posts found'}</strong><p>{isSavedPage ? 'Save a post from the feed and it will appear here.' : 'Try another filter or start a conversation with your campus.'}</p>{!isSavedPage && <button type="button" onClick={() => onCreatePost('feedback')}>Create a post</button>}</div>
           ) : (
             posts.map(post => {
               const hasUpvoted = currentUser ? post.upvotedBy.includes(currentUser._id) : false;
@@ -129,24 +183,43 @@ export default function Feed({ posts, onUpvote, onDownvote, onReport, onAddComme
               const isExpanded = expandedPostId === post._id;
               const comments = post.commentList || [];
               const postImages = [...(post.images || []), ...(post.image && !(post.images || []).includes(post.image) ? [post.image] : [])];
+              const hasStatusProgress = ['feedback', 'idea'].includes(post.postType || 'feedback') && ((post.status && post.status !== 'submitted') || (post.statusHistory?.length || 0) > 1);
+              const authorLabel = post.author ? (post.visibility === 'alias' ? `@${post.author.username}` : post.author.username) : 'Anonymous';
+              const avatarInitial = post.author?.username?.slice(0, 1).toUpperCase() || 'A';
 
               return (
-              <article key={post._id} id={`post-${post._id}`} className="post-card">
-                <div className="post-badges"><span className="post-tag">{post.tag}</span><span className="post-type-badge">{typeLabels[post.postType || 'feedback']}</span>{['feedback', 'idea'].includes(post.postType || 'feedback') && <span className={`post-status post-status-${post.status || 'submitted'}`}>{(post.status || 'submitted').replace('-', ' ')}</span>}</div>
-                {post.author && <div className="post-author">{post.visibility === 'named' && post.author.profilePhoto && <img src={post.author.profilePhoto} alt="" />}{post.visibility === 'alias' ? `@${post.author.username}` : post.author.username}</div>}
-                {['feedback', 'idea'].includes(post.postType || 'feedback') && post.statusHistory?.length > 1 && <details className="post-status-history"><summary>Update history</summary><ol>{post.statusHistory.slice(-4).map((update, index) => <li key={`${update.status}-${update.updatedAt}-${index}`}><strong>{update.status.replace('-', ' ')}</strong><time>{new Date(update.updatedAt).toLocaleDateString()}</time></li>)}</ol></details>}
-                <p className="post-content">{post.content}</p>
-                {post.status === 'resolved' && post.resolutionNote && <aside className="post-resolution-update"><strong>Campus resolution update</strong><p>{post.resolutionNote}</p></aside>}
-                {post.canEdit && post.editHistory?.length > 0 && <details className="post-edit-history"><summary>Edited · view history</summary><ol>{post.editHistory.slice(-5).reverse().map((edit, index) => <li key={`${edit.editedAt}-${index}`}><time>{new Date(edit.editedAt).toLocaleString()}</time><p>{edit.content}</p></li>)}</ol></details>}
-                {post.topics?.length > 0 && <div className="post-topic-tags">{post.topics.map(topic => <button key={topic} type="button" onClick={() => setSelectedTopic(topic)}>{topic}</button>)}</div>}
-                {postImages.length > 0 && <FeedbackImageCarousel images={postImages} postId={post._id} />}
-                <Poll post={post} onVote={onPollVote} currentUser={currentUser} />
-                {post.adminReplies?.length > 0 && <section className="post-updates" aria-label="Official updates"><div className="post-updates-heading"><strong>Official updates</strong><span>{post.adminReplies.length}</span></div><div className="post-updates-list">{post.adminReplies.map(reply => <article className="admin-reply" key={reply._id}><div className="admin-reply-heading"><strong>EchoBox Admin | @{reply.adminUsername}</strong><time>{new Date(reply.createdAt).toLocaleString()}</time></div><p>{reply.text}</p></article>)}</div></section>}
+              <article key={post._id} id={`post-${post._id}`} className={`post-card post-card-${post.postType || 'feedback'}`}>
+                <header className="post-card-header">
+                  <div className="post-meta-line">
+                    <div className="post-author post-identity">
+                      <span className="post-avatar" aria-hidden="true">{post.visibility === 'named' && post.author?.profilePhoto ? <img src={post.author.profilePhoto} alt="" /> : <span className="post-avatar-content">{post.author && post.visibility !== 'anonymous' ? avatarInitial : <Icon name="user" size={17} />}</span>}</span>
+                      <span className="post-author-name">{authorLabel}</span>
+                    </div>
+                    <time className="post-time" dateTime={post.createdAt}>{new Date(post.createdAt).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}</time>
+                  </div>
+                  <div className="post-badges"><span className="post-type-badge"><Icon name={typeIcons[post.postType || 'feedback']} size={14} />{typeLabels[post.postType || 'feedback']}</span><span className="post-tag">{post.tag}</span>{['feedback', 'idea'].includes(post.postType || 'feedback') && <span className={`post-status post-status-${post.status || 'submitted'}`}>{(post.status || 'submitted').replace('-', ' ')}</span>}</div>
+                </header>
+                {hasStatusProgress && <FeedbackProgress post={post} />}
+                <div className={`post-body ${postImages.length ? 'post-body-with-media' : ''}`}>
+                  <div className="post-copy">
+                    {['feedback', 'idea'].includes(post.postType || 'feedback') && post.statusHistory?.length > 1 && <details className="post-status-history"><summary>Update history</summary><ol>{post.statusHistory.slice(-4).map((update, index) => <li key={`${update.status}-${update.updatedAt}-${index}`}><strong>{update.status.replace('-', ' ')}</strong><time>{new Date(update.updatedAt).toLocaleDateString()}</time></li>)}</ol></details>}
+                    <p className="post-content">{post.content}</p>
+                    {post.status === 'resolved' && post.resolutionNote && <aside className="post-resolution-update"><strong>Campus resolution update</strong><p>{post.resolutionNote}</p>{post.isOwner && !post.resolutionFeedback && <div className="resolution-checkin"><span>Did this resolve your issue?</span><div><button type="button" onClick={() => runPostAction(`${post._id}-resolution`, () => onResolutionFeedback(post._id, 'resolved'))} disabled={Boolean(pendingAction)}>Yes, resolved</button><button type="button" onClick={() => runPostAction(`${post._id}-resolution`, () => onResolutionFeedback(post._id, 'still-open'))} disabled={Boolean(pendingAction)}>Still needs attention</button></div></div>}{post.isOwner && post.resolutionFeedback && <p className="resolution-feedback-note">Your response: {post.resolutionFeedback === 'resolved' ? 'You confirmed this is resolved.' : 'You said this still needs attention.'}</p>}{currentUser?.isAdmin && post.resolutionFeedback && <p className="resolution-feedback-note">Author response: {post.resolutionFeedback === 'resolved' ? 'Confirmed resolved' : 'Still needs attention'}</p>}</aside>}
+                    {post.canEdit && post.editHistory?.length > 0 && <details className="post-edit-history"><summary>Edited · view history</summary><ol>{post.editHistory.slice(-5).reverse().map((edit, index) => <li key={`${edit.editedAt}-${index}`}><time>{new Date(edit.editedAt).toLocaleString()}</time><p>{edit.content}</p></li>)}</ol></details>}
+                    {post.topics?.length > 0 && <div className="post-topic-tags">{post.topics.map(topic => <button key={topic} type="button" onClick={() => setSelectedTopic(topic)}>{topic}</button>)}</div>}
+                    <Poll post={post} onVote={onPollVote} currentUser={currentUser} />
+                    {post.adminReplies?.length > 0 && <section className="post-updates" aria-label="Official updates"><div className="post-updates-heading"><strong>Official updates</strong><span>{post.adminReplies.length}</span></div><div className="post-updates-list">{post.adminReplies.map(reply => <article className="admin-reply" key={reply._id}><div className="admin-reply-heading"><strong>EchoBox Admin | @{reply.adminUsername}</strong><time>{new Date(reply.createdAt).toLocaleString()}</time></div><p>{reply.text}</p></article>)}</div></section>}
+                  </div>
+                  {postImages.length > 0 && <FeedbackImageCarousel images={postImages} postId={post._id} />}
+                </div>
                 
                 <div className="post-metrics">
                   {['feedback', 'idea'].includes(post.postType || 'feedback') && <button 
                     className={`metric ${hasUpvoted ? 'active-vote' : ''}`} 
-                    onClick={() => onUpvote(post._id)}
+                    type="button"
+                    onClick={() => runPostAction(`${post._id}-upvote`, () => onUpvote(post._id))}
+                    disabled={Boolean(pendingAction)}
+                    aria-pressed={hasUpvoted}
                     aria-label={`${hasUpvoted ? 'Remove support' : 'Support this post'}; ${post.upvotedBy.length} supporters`}
                   >
                     <svg width="16" height="16" viewBox="0 0 24 24" fill={hasUpvoted ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -156,7 +229,10 @@ export default function Feed({ posts, onUpvote, onDownvote, onReport, onAddComme
                   </button>}
                   {(post.postType || 'feedback') === 'feedback' && <button 
                     className={`metric ${hasDownvoted ? 'active-vote' : ''}`} 
-                    onClick={() => onDownvote(post._id)}
+                    type="button"
+                    onClick={() => runPostAction(`${post._id}-downvote`, () => onDownvote(post._id))}
+                    disabled={Boolean(pendingAction)}
+                    aria-pressed={hasDownvoted}
                     aria-label={`${hasDownvoted ? 'Remove downvote' : 'Downvote'}; ${post.downvotedBy.length} downvotes`}
                   >
                     <svg width="16" height="16" viewBox="0 0 24 24" fill={hasDownvoted ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -164,23 +240,23 @@ export default function Feed({ posts, onUpvote, onDownvote, onReport, onAddComme
                     </svg>
                     {post.downvotedBy.length}
                   </button>}
-                  {(post.postType || 'feedback') !== 'feedback' && <div className="post-reactions">{reactions.map(([kind, icon, label]) => <button type="button" key={kind} className={post.myReaction === kind ? 'active' : ''} onClick={() => onReaction(post._id, kind)} aria-pressed={post.myReaction === kind} aria-label={`${label}, ${post.reactions?.[kind] || 0}`}><Icon name={icon} size={15} /> {post.reactions?.[kind] || 0}</button>)}</div>}
-                  <button className="metric" onClick={() => toggleComments(post._id)} aria-expanded={isExpanded} aria-label={`${isExpanded ? 'Hide' : 'Show'} ${comments.length} comments`}>
+                  {(post.postType || 'feedback') !== 'feedback' && <div className="post-reactions">{reactions.map(([kind, icon, label]) => <button type="button" key={kind} className={post.myReaction === kind ? 'active' : ''} onClick={() => runPostAction(`${post._id}-reaction`, () => onReaction(post._id, kind))} disabled={Boolean(pendingAction)} aria-pressed={post.myReaction === kind} aria-label={`${label}, ${post.reactions?.[kind] || 0}`} title={currentUser ? label : `Sign in to ${label.toLowerCase()}`}><Icon name={icon} size={15} /> <span>{post.reactions?.[kind] || 0}</span><span className="reaction-label">{label}</span></button>)}</div>}
+                  <button type="button" className="metric" onClick={() => toggleComments(post._id)} aria-expanded={isExpanded} aria-label={`${isExpanded ? 'Hide' : 'Show'} ${comments.length} comments`}>
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                       <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path>
                     </svg>
                     {comments.length} Comments
                   </button>
-                  <button className="metric" onClick={() => onReport(post._id)} aria-label="Report feedback">
+                  <button type="button" className="metric" onClick={() => onReport(post._id)} aria-label="Report this post">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                       <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"></path>
                       <line x1="4" y1="22" x2="4" y2="15"></line>
                     </svg>
                     Report
                   </button>
-                  {post.canEdit && <button className="metric edit-post-action" onClick={() => onEdit(post)}>Edit</button>}
-                  {currentUser && <button className="metric" onClick={() => onSave(post._id)} aria-pressed={post.isSaved}>{post.isSaved ? 'Saved' : 'Save'}</button>}
-                  <button className={`metric follow-metric ${isFollowing ? 'active-vote' : ''}`} onClick={() => onFollow(post._id)} aria-pressed={isFollowing}>{isFollowing ? 'Following' : 'Follow updates'}</button>
+                  {post.canEdit && <button type="button" className="metric edit-post-action" onClick={() => onEdit(post)}><Icon name="edit" size={15} /> Edit</button>}
+                  {currentUser && <button type="button" className="metric save-post-action" onClick={() => runPostAction(`${post._id}-save`, () => onSave(post._id))} disabled={Boolean(pendingAction)} aria-pressed={post.isSaved}><Icon name="bookmark" size={15} /> {post.isSaved ? 'Saved' : 'Save'}</button>}
+                  <button type="button" className={`metric follow-metric ${isFollowing ? 'active-vote' : ''}`} onClick={() => runPostAction(`${post._id}-follow`, () => onFollow(post._id))} disabled={Boolean(pendingAction)} aria-pressed={isFollowing}><Icon name="bell" size={15} /> {isFollowing ? 'Following' : 'Follow updates'}</button>
                 </div>
                 
                 {isExpanded && (
@@ -203,9 +279,9 @@ export default function Feed({ posts, onUpvote, onDownvote, onReport, onAddComme
                         placeholder={currentUser ? "Write a comment..." : "Login to join the discussion"}
                         value={commentText}
                         onChange={(e) => setCommentText(e.target.value)}
-                        disabled={!currentUser}
+                        disabled={!currentUser || commentSubmitting}
                       />
-                      <button type="submit" className="comment-submit" disabled={!currentUser || !commentText.trim()}>Post</button>
+                      <button type="submit" className="comment-submit" disabled={!currentUser || !commentText.trim() || commentSubmitting}>{commentSubmitting ? 'Posting…' : 'Post'}</button>
                     </form>
                   </div>
                 )}

@@ -52,9 +52,32 @@ EchoBox/
 
 ## Prerequisites
 
-- Node.js 20.19 or newer (or Node.js 22.12 or newer)
-- npm
-- MongoDB 
+- For local development: Node.js 20.19 or newer (or Node.js 22.12 or newer), npm, and MongoDB
+- For Docker Compose: Docker Desktop or Docker Engine with the Compose plugin
+
+## Run with Docker Compose
+
+Docker Compose runs MongoDB, the Express API, and a production-built React frontend served by Nginx. The frontend proxies `/api` requests to the backend, so the browser uses the same origin for the app and API.
+
+1. Install Docker Desktop (or Docker Engine with the Compose plugin).
+2. Create the root `.env` file from the example:
+
+   ```powershell
+   Copy-Item .env.example .env
+   ```
+
+3. Edit `.env` and replace `JWT_SECRET` with a private random secret of at least 32 bytes and `ADMIN_PASSWORD` with a strong password.
+4. From the project root, build and start the services:
+
+   ```bash
+   docker compose up --build
+   ```
+
+Open the app at `http://localhost:8080`. The API is also available directly at `http://localhost:5000/api`. MongoDB data is persisted in the `mongo_data` Docker volume. Stop the services with `docker compose down`; the volume is kept for the next run.
+
+The first backend start creates the configured admin account and seeds starter feedback if the posts collection is empty. Change `ADMIN_PASSWORD` before the first run. If the admin account already exists, changing the environment variable does not change its existing password.
+
+The root `.env` is only used by Compose. For the local non-container setup below, configure `backend/.env` as described there.
 
 ## Setup
 
@@ -82,18 +105,30 @@ npm install
 
 ## Running Locally
 
-Run the backend and frontend in separate terminals from the project root. The Vite development server proxies `/api` requests to `http://localhost:5000` by default. Set `VITE_BACKEND_URL` in `frontend/.env` to change that target. For a separately hosted API, set `VITE_API_URL` to its API base URL and add the frontend origin to `CORS_ORIGINS` in `backend/.env`.
+The backend is also the API server. Start it before the frontend, and keep both processes running in separate terminals from the project root. The Vite development server proxies frontend `/api` requests to the backend API at `http://localhost:5000` by default.
 
-### Terminal 1: Start the backend
+### Terminal 1: Start the backend and API
+
+From the project root:
 
 ```bash
 cd backend
 npm start
 ```
 
-The backend runs on `http://localhost:5000`.
+The backend and API run on `http://localhost:5000`.
+
+The API base URL for local development is:
+
+```text
+http://localhost:5000/api
+```
+
+For example, the public posts endpoint is available at `http://localhost:5000/api/posts` when the backend is running.
 
 ### Terminal 2: Start the frontend
+
+From the project root:
 
 ```bash
 cd frontend
@@ -101,6 +136,8 @@ npm run dev
 ```
 
 Vite prints the frontend URL in the terminal (usually `http://localhost:5173`).
+
+Open the frontend URL in a browser. Requests made by the frontend to `/api` are forwarded to the backend API automatically. To use a different backend locally, set `VITE_BACKEND_URL` in `frontend/.env`. For a separately hosted API, set `VITE_API_URL` to its API base URL and add the frontend origin to `CORS_ORIGINS` in `backend/.env`.
 
 When the backend starts, it will:
 

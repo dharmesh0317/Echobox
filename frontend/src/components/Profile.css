@@ -264,9 +264,16 @@
 .profile-settings-card p { color: var(--text-muted); font-size: 13px; }
 .profile-settings-card label { display: grid; gap: 6px; color: #475569; font-size: 12px; font-weight: 700; }
 .profile-settings-card input { min-width: 0; padding: 11px 12px; border: 1px solid var(--border-color); border-radius: 8px; font: inherit; color: var(--text-dark); }
+.profile-password-control { position: relative; }
+.profile-password-control input { width: 100%; padding-right: 44px; }
+.profile-password-toggle { position: absolute; top: 50%; right: 8px; display: grid; width: 32px; height: 32px; place-items: center; padding: 0; transform: translateY(-50%); border: 0; border-radius: 6px; background: transparent; color: var(--text-muted); cursor: pointer; }
+.profile-password-toggle:hover { background: var(--primary-color); color: var(--accent-color); }
+.profile-password-toggle:focus-visible { outline: 2px solid var(--accent-color); outline-offset: 1px; }
 .profile-settings-card input:focus { outline: 2px solid #bfdbfe; border-color: var(--accent-color); }
 .profile-settings-card button { justify-self: start; padding: 10px 14px; border: 0; border-radius: 8px; background: var(--accent-color); color: white; font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; }
 .profile-settings-card button:disabled { opacity: .55; cursor: not-allowed; }
+.profile-settings-card .profile-form-feedback { justify-self: start; margin: 0; padding: 9px 12px; border: 1px solid color-mix(in srgb, #16834a 24%, var(--border-color)); border-radius: 9px; background: color-mix(in srgb, #16834a 9%, var(--card-bg)); color: #167044; font-size: 13px; font-weight: 650; line-height: 1.45; }
+.profile-settings-card .profile-form-feedback-error { border-color: color-mix(in srgb, #dc2626 28%, var(--border-color)); background: color-mix(in srgb, #dc2626 8%, var(--card-bg)); color: #b42318; }
 
 @media (max-width: 700px) {
   .profile-settings-grid { grid-template-columns: 1fr; }
@@ -347,6 +354,8 @@
 .profile-privacy-note h3, .profile-privacy-note p { color: var(--text-dark); }
 body[data-theme="dark"] .profile-settings-card label { color: var(--text-muted); }
 body[data-theme="dark"] .profile-settings-card input { background: #0b1423; color: var(--text-dark); }
+body[data-theme="dark"] .profile-settings-card .profile-form-feedback { color: #8be0ad; }
+body[data-theme="dark"] .profile-settings-card .profile-form-feedback-error { color: #ffaaa5; }
 body[data-theme="dark"] .profile-privacy-note h3, body[data-theme="dark"] .profile-privacy-note p { color: var(--text-dark); }
 @media (max-width: 700px) {
   .profile-page { padding: 24px 16px 40px; }
@@ -373,6 +382,9 @@ body[data-theme="dark"] .profile-privacy-note h3, body[data-theme="dark"] .profi
 .profile-settings-card button { min-height: 40px; border-radius: 10px; background: var(--accent-color); color: #fff; transition: filter .16s ease, transform .16s ease; }
 .profile-settings-card button:hover { filter: brightness(1.06); }
 .profile-settings-card button:active { transform: scale(.985); }
+.profile-settings-card .profile-password-toggle { justify-self: auto; width: 32px; min-height: 32px; padding: 0; border: 0; border-radius: 8px; background: transparent; color: var(--text-muted); filter: none; transition: background .16s ease, color .16s ease; }
+.profile-settings-card .profile-password-toggle:hover { background: color-mix(in srgb, var(--accent-color) 12%, var(--bg-color)); color: var(--accent-color); filter: none; }
+.profile-settings-card .profile-password-toggle:active { transform: translateY(-50%); }
 .activity-icon .ui-icon { color: currentColor; }
 .profile-card-banner { background: linear-gradient(115deg, color-mix(in srgb, var(--accent-color) 88%, #153f9a), #4ba6ce); }
 @media (max-width: 520px) { .profile-activity { grid-template-columns: repeat(3, minmax(0, 1fr)); } .profile-activity article { min-width: 0; padding: 10px; } }

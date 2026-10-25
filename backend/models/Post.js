@@ -72,6 +72,7 @@ const PostSchema = new mongoose.Schema({
   statusUpdatedAt: { type: Date, default: Date.now },
   statusHistory: [StatusHistorySchema],
   resolutionNote: { type: String, default: '', maxlength: 1000 },
+  resolutionFeedback: { type: String, enum: ['', 'resolved', 'still-open'], default: '' },
   editHistory: { type: [EditHistorySchema], default: [] },
   adminReplies: [AdminReplySchema],
   upvotedBy: [{ type: String }],

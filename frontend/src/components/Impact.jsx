@@ -5,7 +5,7 @@ export default function Impact({ posts }) {
   const resolved = posts.filter(post => ['feedback', 'idea'].includes(post.postType || 'feedback') && post.status === 'resolved')
     .sort((a, b) => new Date(b.statusUpdatedAt || b.updatedAt) - new Date(a.statusUpdatedAt || a.updatedAt));
   const categories = [...new Set(resolved.map(post => post.tag))];
-  return <main className="community-page impact-page">
+  return <main className="community-page impact-page" id="primary-content" tabIndex={-1}>
     <header><span className="community-eyebrow">CAMPUS PROGRESS</span><h1>EchoBox impact</h1><p>See campus feedback and ideas that have reached a resolution.</p></header>
     <section className="impact-summary"><strong>{resolved.length}</strong><span>resolved {resolved.length === 1 ? 'item' : 'items'}</span><small>{categories.length ? `Across ${categories.join(', ')}` : 'Resolved updates will appear here.'}</small></section>
     <div className="impact-list">{resolved.length ? resolved.map(post => <article className="impact-card" key={post._id}>

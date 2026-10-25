@@ -80,7 +80,7 @@ export default function Admin({ posts, users, onDeletePost, onReviewReport, onUp
     return { label: date.toLocaleDateString(undefined, { month: 'short' }), count };
   }), [posts]);
   const maxTrend = Math.max(1, ...trend.map(item => item.count));
-  const unresolvedPosts = posts.filter(post => ['feedback', 'idea'].includes(post.postType || 'feedback') && post.status !== 'resolved' && `${post.content} ${post.tag}`.toLowerCase().includes(search.toLowerCase()));
+  const unresolvedPosts = posts.filter(post => ['feedback', 'idea'].includes(post.postType || 'feedback') && post.status !== 'resolved' && `${post.content} ${post.tag}`.toLowerCase().includes(search.toLowerCase())).sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
   const recentlyResolvedPosts = posts.filter(post => ['feedback', 'idea'].includes(post.postType || 'feedback') && post.status === 'resolved' && `${post.content} ${post.tag}`.toLowerCase().includes(search.toLowerCase())).sort((a, b) => new Date(b.statusUpdatedAt || b.updatedAt) - new Date(a.statusUpdatedAt || a.updatedAt));
   const reportsForView = queueView === 'pending' ? filteredReports.filter(report => report.status === 'pending') : filteredReports;
   const selectableReports = reportsForView.filter(report => report.status === 'pending');
@@ -124,7 +124,7 @@ export default function Admin({ posts, users, onDeletePost, onReviewReport, onUp
     }
   });
 
-  return <div className="admin-dashboard">
+  return <div className="admin-dashboard" id="primary-content" tabIndex={-1}>
     <div className="admin-header"><div><span className="admin-eyebrow">ECHOBOX | CONTROL CENTER</span><h1>Moderation dashboard</h1><p>Review reports, track campus issues, and keep the community healthy.</p></div><span className="admin-access-badge"><i /> Admin access</span></div>
     <div className="admin-stats">
       <div className="stat-card stat-reports"><span className="stat-icon"><Icon name="flag" size={18} /></span><div><h4>Pending reports</h4><span className="stat-value">{pendingReports}</span></div><small>Needs review</small></div>
@@ -173,9 +173,16 @@ export default function Admin({ posts, users, onDeletePost, onReviewReport, onUp
           {report.history?.length > 0 && <details className="report-history"><summary>Moderation history - {report.history.length}</summary><ol>{report.history.map((entry, index) => <li key={`${entry.status}-${entry.reviewedAt}-${index}`}><strong>{entry.status}</strong><time>{new Date(entry.reviewedAt).toLocaleString()}</time><small>{entry.reviewedBy ? `Admin ID ending ${entry.reviewedBy.slice(-4)}` : 'Admin review'}</small></li>)}</ol></details>}
           {report.status === 'pending' && <div className="report-actions"><button className="reject-btn" onClick={() => review(report, 'rejected')}>Reject</button><button className="actioned-btn" onClick={() => review(report, 'actioned')}>Mark actioned</button></div>}
         </article>))}
-        {['unresolved', 'resolved'].includes(queueView) && (postsLoading ? <div className="empty-state">Loading feedback...</div> : (queueView === 'unresolved' ? unresolvedPosts : recentlyResolvedPosts).length === 0 ? <div className="empty-state">No feedback matches this saved view.</div> : (queueView === 'unresolved' ? unresolvedPosts : recentlyResolvedPosts).map(post => <article className="queue-post-card" key={post._id}>
-          <div className="report-card-top"><span className="mini-tag">{post.tag}</span><span className={`post-status post-status-${post.status || 'submitted'}`}>{(post.status || 'submitted').replace('-', ' ')}</span></div><p>{post.content}</p><div className="queue-post-meta"><span>{post.commentList?.length || 0} comments</span><time>{new Date(post.statusUpdatedAt || post.updatedAt).toLocaleDateString()}</time></div><a href="#manage-posts">Manage post <span aria-hidden="true">?</span></a>
-        </article>))}
+        {['unresolved', 'resolved'].includes(queueView) && (postsLoading ? <div className="empty-state">Loading feedback...</div> : (queueView === 'unresolved' ? unresolvedPosts : recentlyResolvedPosts).length === 0 ? <div className="empty-state">No feedback matches this saved view.</div> : (queueView === 'unresolved' ? unresolvedPosts : recentlyResolvedPosts).map(post => {
+          const openDays = Math.max(0, Math.floor((Date.now() - new Date(post.createdAt).getTime()) / 86400000));
+          return <article className="queue-post-card" key={post._id}>
+            <div className="report-card-top"><span className="mini-tag">{post.tag}</span><span className={`post-status post-status-${post.status || 'submitted'}`}>{(post.status || 'submitted').replace('-', ' ')}</span></div>
+            <p>{post.content}</p>
+            {queueView === 'resolved' && post.resolutionNote && <div className="queue-resolution-note"><strong>Resolution</strong><p>{post.resolutionNote}</p>{post.resolutionFeedback && <span className={`queue-resolution-feedback ${post.resolutionFeedback === 'still-open' ? 'needs-attention' : ''}`}>{post.resolutionFeedback === 'resolved' ? 'Author confirmed resolved' : 'Author says it still needs attention'}</span>}</div>}
+            <div className="queue-post-meta"><span>{post.commentList?.length || 0} comments</span>{queueView === 'unresolved' && <span className={`queue-age ${openDays >= 7 ? 'queue-age-overdue' : ''}`}>Open {openDays} {openDays === 1 ? 'day' : 'days'}</span>}<time>{new Date(post.statusUpdatedAt || post.updatedAt).toLocaleDateString()}</time></div>
+            <a href={`#admin-post-${post._id}`}>Manage post <span aria-hidden="true">?</span></a>
+          </article>;
+        }))}
       </div>
     </section>
 
@@ -187,7 +194,7 @@ export default function Admin({ posts, users, onDeletePost, onReviewReport, onUp
     <section className="admin-section" id="manage-posts"><div className="admin-section-heading"><div><span className="admin-eyebrow">CONTENT MANAGEMENT</span><h2>Manage posts</h2><p>Update status, reply to students, or edit and remove posts.</p></div></div>
       <div className="admin-filters"><input aria-label="Search feedback" placeholder="Search posts..." value={postSearch} onChange={event => setPostSearch(event.target.value)} /><select aria-label="Filter feedback by category" value={category} onChange={event => setCategory(event.target.value)}><option value="all">All categories</option>{categories.map(item => <option key={item}>{item}</option>)}</select></div>
       {actionMessage && <p className={`admin-action-message ${actionFailed ? 'admin-action-message-error' : ''}`} role="status">{actionMessage}</p>}
-      <div className="admin-table-container">{postsLoading ? <div className="empty-state">Loading feedback…</div> : filteredPosts.length === 0 ? <div className="empty-state">No feedback matches these filters.</div> : <table className="admin-table"><thead><tr><th>ID</th><th>Category</th><th>Content</th><th>Engagements</th><th>Actions</th></tr></thead><tbody>{filteredPosts.map(post => <tr key={post._id}><td>#{post._id.slice(-4)}</td><td><span className="mini-tag">{post.tag}</span></td><td className="table-content-preview">{post.content.length > 90 ? `${post.content.slice(0, 90)}...` : post.content}{(post.image || post.images?.length > 0) && <span className="admin-image-label"> · {post.images?.length || 1} image(s) attached</span>}</td><td>{post.upvotedBy.length} up · {post.downvotedBy.length} down</td><td><FeedbackAdminTools post={post} onUpdateStatus={onUpdateStatus} onAdminReply={onAdminReply} /><button className="edit-btn" onClick={() => onEditPost(post)}>Edit</button><button className="delete-btn" onClick={() => onDeletePost(post._id)}>Delete</button></td></tr>)}</tbody></table>}</div>
+      <div className="admin-table-container">{postsLoading ? <div className="empty-state">Loading feedback…</div> : filteredPosts.length === 0 ? <div className="empty-state">No feedback matches these filters.</div> : <table className="admin-table"><thead><tr><th>ID</th><th>Category</th><th>Content</th><th>Engagements</th><th>Actions</th></tr></thead><tbody>{filteredPosts.map(post => <tr id={`admin-post-${post._id}`} key={post._id}><td>#{post._id.slice(-4)}</td><td><span className="mini-tag">{post.tag}</span></td><td className="table-content-preview">{post.content.length > 90 ? `${post.content.slice(0, 90)}...` : post.content}{(post.image || post.images?.length > 0) && <span className="admin-image-label"> · {post.images?.length || 1} image(s) attached</span>}</td><td>{post.upvotedBy.length} up · {post.downvotedBy.length} down</td><td><FeedbackAdminTools post={post} onUpdateStatus={onUpdateStatus} onAdminReply={onAdminReply} /><button className="edit-btn" onClick={() => onEditPost(post)}>Edit</button><button className="delete-btn" onClick={() => onDeletePost(post._id)}>Delete</button></td></tr>)}</tbody></table>}</div>
     </section>
     {confirmation && <ConfirmDialog {...confirmation} onCancel={() => setConfirmation(null)} />}
   </div>;

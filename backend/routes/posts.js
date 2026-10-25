@@ -29,6 +29,8 @@ function serializePost(post, includeModeration = false, user = null) {
   delete result.authorName;
   delete result.authorPhoto;
   const voterId = user?._id.toString();
+  result.isOwner = Boolean(user && post.ownerId === voterId);
+  if (!includeModeration && !result.isOwner) delete result.resolutionFeedback;
   const pollOptions = result.poll?.options || [];
   result.poll = result.poll?.question ? {
     question: result.poll.question,
@@ -90,7 +92,7 @@ router.post('/', authenticate, async (req, res) => {
       authorName: req.user.username,
       authorPhoto: visibility === 'named' ? req.user.profilePhoto : '',
       poll: poll ? { question: poll.question.trim(), options: poll.options.map(label => ({ label: label.trim() })), closesAt: new Date(Date.now() + ([1, 3, 7, 14].includes(Number(poll.durationDays)) ? Number(poll.durationDays) : 7) * 86400000) } : undefined,
-      ownerId: req.user._id.toString(), statusHistory: postType === 'feedback' ? [{ status: 'submitted' }] : []
+      ownerId: req.user._id.toString(), statusHistory: ['feedback', 'idea'].includes(postType) ? [{ status: 'submitted' }] : []
     });
     if (topics.length) await notifyTopicFollowers(post, req.user._id.toString());
     res.status(201).json(serializePost(post, req.user.isAdmin, req.user));
@@ -162,19 +164,37 @@ router.put('/:id/status', authenticate, requireAdmin, async (req, res) => {
     if (!post) return res.status(404).json({ error: 'Feedback not found.' });
     if (!['feedback', 'idea'].includes(post.postType || 'feedback')) return res.status(409).json({ error: 'Only feedback and ideas can have progress statuses.' });
     const changed = post.status !== req.body.status;
+    const resolutionChanged = req.body.status === 'resolved' && post.resolutionNote !== resolutionNote;
     const previousStatus = post.status || 'submitted';
     post.status = req.body.status;
     post.statusUpdatedAt = new Date();
     post.resolutionNote = req.body.status === 'resolved' ? resolutionNote : '';
-    if (changed) {
+    if (changed || resolutionChanged) {
+      post.resolutionFeedback = '';
       if (!post.statusHistory.length) post.statusHistory.push({ status: previousStatus, updatedAt: post.createdAt || post.statusUpdatedAt });
       post.statusHistory.push({ status: post.status, updatedAt: post.statusUpdatedAt, note: post.status === 'resolved' ? resolutionNote : '' });
     }
     await post.save();
-    if (changed) await notifyFollowers(post, 'status', `${post.postType === 'idea' ? 'Idea' : 'Feedback'} status changed to ${req.body.status.replace('-', ' ')}.`);
+    if (changed || resolutionChanged) await notifyFollowers(post, 'status', `${post.postType === 'idea' ? 'Idea' : 'Feedback'} status ${resolutionChanged && !changed ? 'resolution updated' : `changed to ${req.body.status.replace('-', ' ')}`}.`);
     res.json(serializePost(post, true, req.user));
   } catch {
     res.status(400).json({ error: 'Could not update feedback status.' });
+  }
+});
+
+router.put('/:id/resolution-feedback', authenticate, async (req, res) => {
+  const feedback = req.body.feedback;
+  if (!['resolved', 'still-open'].includes(feedback)) return res.status(400).json({ error: 'Choose whether the issue is resolved or still open.' });
+  try {
+    const post = await Post.findById(req.params.id);
+    if (!post) return res.status(404).json({ error: 'Feedback not found.' });
+    if (post.ownerId !== req.user._id.toString()) return res.status(403).json({ error: 'Only the person who submitted this feedback can confirm its resolution.' });
+    if (!['feedback', 'idea'].includes(post.postType || 'feedback') || post.status !== 'resolved') return res.status(409).json({ error: 'Resolution feedback is available after feedback or an idea is marked resolved.' });
+    post.resolutionFeedback = feedback;
+    await post.save();
+    res.json(serializePost(post, false, req.user));
+  } catch {
+    res.status(400).json({ error: 'Could not save your resolution feedback.' });
   }
 });
 

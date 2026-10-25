@@ -4,9 +4,9 @@ import './CommunityPages.css';
 export default function PollResults({ posts }) {
   const { postId } = useParams();
   const post = posts.find(item => item._id === postId && item.poll?.question);
-  if (!post) return <main className="community-page"><div className="community-empty">This poll could not be found. <Link to="/">Return to the feed</Link></div></main>;
+  if (!post) return <main className="community-page" id="primary-content" tabIndex={-1}><div className="community-empty">This poll could not be found. <Link to="/">Return to the feed</Link></div></main>;
   const total = post.poll.options.reduce((sum, option) => sum + option.votes, 0);
-  return <main className="community-page poll-results-page">
+  return <main className="community-page poll-results-page" id="primary-content" tabIndex={-1}>
     <Link className="community-back-link" to={`/#post-${post._id}`}>← Back to the conversation</Link>
     <header><span className="community-eyebrow">POLL RESULTS · {post.tag}</span><h1>{post.poll.question}</h1><p>{post.content}</p></header>
     <section className="poll-results-card"><div className="poll-results-heading"><h2>{post.poll.isClosed ? 'Final results' : 'Current results'}</h2><span>{total} {total === 1 ? 'vote' : 'votes'}</span></div>

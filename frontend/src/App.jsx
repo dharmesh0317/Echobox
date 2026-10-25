@@ -12,6 +12,8 @@ import ConfirmDialog from './components/ConfirmDialog';
 import ReportDialog from './components/ReportDialog';
 import Impact from './components/Impact';
 import PollResults from './components/PollResults';
+import './site-refresh.css';
+import './post-card-redesign.css';
 
 const AUTH_STORAGE_KEY = 'echobox-current-user';
 
@@ -174,23 +176,26 @@ function App() {
   };
 
   const handleLogout = () => {
+    localStorage.removeItem(AUTH_STORAGE_KEY);
     setCurrentUser(null);
     navigate('/auth');
   };
 
   const handleUpvote = async (id) => {
-    if (!currentUser) return setActionNotice('Sign in to support posts.');
+    if (!currentUser) { setActionNotice('Sign in to support posts.'); return false; }
     try {
       const res = await api.put(`/posts/${id}/vote`, { type: 'up' });
       setPosts(currentPosts => currentPosts.map(post => post._id === id ? res.data : post));
+      return true;
     } catch (err) {
       console.error(err);
       setActionNotice(err.response?.data?.error || 'Could not save your vote. Please try again.');
+      return false;
     }
   };
 
   const handleDownvote = async (id) => {
-    if (!currentUser) return setActionNotice('Sign in to vote on feedback.');
+    if (!currentUser) { setActionNotice('Sign in to vote on feedback.'); return false; }
     try {
       const res = await api.put(`/posts/${id}/vote`, { type: 'down' });
       if (res.data.deleted) {
@@ -198,9 +203,11 @@ function App() {
       } else {
         setPosts(currentPosts => currentPosts.map(post => post._id === id ? res.data : post));
       }
+      return true;
     } catch (err) {
       console.error(err);
       setActionNotice(err.response?.data?.error || 'Could not save your vote. Please try again.');
+      return false;
     }
   };
 
@@ -225,13 +232,16 @@ function App() {
   };
 
   const handleAddComment = async (postId, text, parentCommentId = '') => {
-    if (!currentUser) return setActionNotice('Sign in to join the discussion.');
+    if (!currentUser) { setActionNotice('Sign in to join the discussion.'); return false; }
     try {
       const res = await api.post(`/posts/${postId}/comment`, { text, parentCommentId });
       setPosts(currentPosts => currentPosts.map(post => post._id === postId ? res.data : post));
+      setActionNotice('Comment posted.');
+      return true;
     } catch (err) {
       console.error(err);
       setActionNotice(err.response?.data?.error || 'Could not post your comment. Please try again.');
+      return false;
     }
   };
 
@@ -267,7 +277,7 @@ function App() {
   };
 
   const handleFollowPost = async id => {
-    if (!currentUser) { setActionNotice('Sign in to follow posts and receive updates.'); return; }
+    if (!currentUser) { setActionNotice('Sign in to follow posts and receive updates.'); return false; }
     try {
       const { data } = await api.put(`/posts/${id}/follow`);
       setCurrentUser(user => {
@@ -275,11 +285,13 @@ function App() {
         if (data.following) followedPosts.add(id); else followedPosts.delete(id);
         return { ...user, followedPosts: [...followedPosts] };
       });
-    } catch (err) { setActionNotice(err.response?.data?.error || 'Could not follow this post.'); }
+      setActionNotice(data.following ? 'Following this post. You’ll receive update notifications.' : 'You are no longer following this post.');
+      return true;
+    } catch (err) { setActionNotice(err.response?.data?.error || 'Could not follow this post.'); return false; }
   };
 
   const handleSavePost = async id => {
-    if (!currentUser) { setActionNotice('Sign in to save posts.'); return; }
+    if (!currentUser) { setActionNotice('Sign in to save posts.'); return false; }
     try {
       const { data } = await api.put(`/posts/${id}/save`);
       setPosts(items => items.map(post => post._id === id ? { ...post, isSaved: data.saved } : post));
@@ -288,7 +300,9 @@ function App() {
         if (data.saved) savedPosts.add(id); else savedPosts.delete(id);
         return { ...user, savedPosts: [...savedPosts] };
       });
-    } catch (err) { setActionNotice(err.response?.data?.error || 'Could not update saved posts.'); }
+      setActionNotice(data.saved ? 'Post saved to your library.' : 'Post removed from your library.');
+      return true;
+    } catch (err) { setActionNotice(err.response?.data?.error || 'Could not update saved posts.'); return false; }
   };
 
   const handleFollowTopic = async topic => {
@@ -300,11 +314,12 @@ function App() {
   };
 
   const handleReaction = async (id, kind) => {
-    if (!currentUser) { setActionNotice('Sign in to react to posts.'); return; }
+    if (!currentUser) { setActionNotice('Sign in to react to posts.'); return false; }
     try {
       const { data } = await api.put(`/posts/${id}/reaction`, { kind });
       setPosts(items => items.map(post => post._id === id ? data : post));
-    } catch (err) { setActionNotice(err.response?.data?.error || 'Could not save your reaction.'); }
+      return true;
+    } catch (err) { setActionNotice(err.response?.data?.error || 'Could not save your reaction.'); return false; }
   };
 
   const handlePollVote = async (id, optionId) => {
@@ -322,6 +337,18 @@ function App() {
       setActionNotice('Feedback status updated.');
       return true;
     } catch (err) { setActionNotice(err.response?.data?.error || 'Could not update feedback status.'); return false; }
+  };
+
+  const handleResolutionFeedback = async (id, feedback) => {
+    try {
+      const { data } = await api.put(`/posts/${id}/resolution-feedback`, { feedback });
+      setPosts(items => items.map(post => post._id === id ? data : post));
+      setActionNotice(feedback === 'resolved' ? 'Thanks for confirming the resolution.' : 'Thanks. The team can see that this still needs attention.');
+      return true;
+    } catch (err) {
+      setActionNotice(err.response?.data?.error || 'Could not save your resolution feedback.');
+      return false;
+    }
   };
 
   const handleAdminReply = async (id, text) => {
@@ -425,6 +452,7 @@ function App() {
     onFollowTopic={handleFollowTopic}
     onReaction={handleReaction}
     onPollVote={handlePollVote}
+    onResolutionFeedback={handleResolutionFeedback}
     onEdit={openPostEditor}
     onCreatePost={openComposer}
     feedMode={feedMode}
@@ -465,6 +493,7 @@ function App() {
       />
       {mobileNavOpen && <button className="sidebar-backdrop" aria-label="Close categories" onClick={() => setMobileNavOpen(false)} />}
       <div className="main-content">
+        <a className="skip-to-content" href="#primary-content">Skip to main content</a>
         <Header 
           searchQuery={searchQuery} 
           setSearchQuery={setSearchQuery} 
